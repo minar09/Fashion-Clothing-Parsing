@@ -1,12 +1,12 @@
 # Fashion parsing models in TensorFlow
-Tensorflow implementation of [Fully Convolutional Networks for Semantic Segmentation](http://arxiv.org/pdf/1605.06211v1.pdf) (FCNs). 
+1. Tensorflow implementation of [Fully Convolutional Networks for Semantic Segmentation](http://arxiv.org/pdf/1605.06211v1.pdf) (FCNs).
+2. TensorFlow implementation of U-Net
 
 The implementation is largely based on the reference code provided by the authors of the paper [link](https://github.com/shelhamer/fcn.berkeleyvision.org). The model was applied on the Scene Parsing Challenge dataset provided by MIT [http://sceneparsing.csail.mit.edu/](http://sceneparsing.csail.mit.edu/).
 
 1. [Prerequisites](#prerequisites)
 2. [Results](#results)
 3. [Observations](#observations)
-4. [Useful links](#useful-links)
 
 ## Prerequisites
  - To train model simply execute `python FCN_FashionParsing.py`
