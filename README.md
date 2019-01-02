@@ -12,7 +12,7 @@ The implementation is largely based on the reference code provided by the author
  - To train model simply execute `python FCN_FashionParsing.py`
  - To visualize results for a random batch of images use flag `--mode=visualize`
  - `debug` flag can be set during training to add information regarding activations, gradients, variables etc.
- - The [IPython notebook](https://github.com/shekkizh/FCN.tensorflow/blob/master/logs/images/Image_Cmaped.ipynb) in logs folder can be used to view results in color as below.
+ - This [IPython notebook](https://github.com/shekkizh/FCN.tensorflow/blob/master/logs/images/Image_Cmaped.ipynb) can be used to view results in color as below.
 
 ## Results
 Pretty much used the same network design as in the reference model implementation of the paper in caffe. The weights for the new layers added were initialized with small values, and the learning was done using Adam Optimizer (Learning rate = 1e-4). 
