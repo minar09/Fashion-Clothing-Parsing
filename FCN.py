@@ -24,10 +24,10 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 
 FLAGS = tf.flags.FLAGS
-tf.flags.DEFINE_integer("batch_size", "2", "batch size for training")
+tf.flags.DEFINE_integer("batch_size", "32", "batch size for training")
 tf.flags.DEFINE_integer(
     "training_epochs",
-    "10",
+    "30",
     "number of epochs for training")
 tf.flags.DEFINE_string("logs_dir", "logs/FCN/", "path to logs directory")
 #tf.flags.DEFINE_string("data_dir", "E:/Dataset/Dataset10k/", "path to dataset")

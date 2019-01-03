@@ -188,9 +188,9 @@ def mode_visualize(sess, FLAGS, TEST_DIR, validation_dataset_reader, pred_annota
         utils.save_image(valid_images[itr].astype(
             np.uint8), TEST_DIR, name="inp_" + str(5 + itr))
         utils.save_image(valid_annotations[itr].astype(
-            np.uint8) * 255 / 18, TEST_DIR, name="gt_" + str(5 + itr))
+            np.uint8) * 255 / NUM_OF_CLASSESS, TEST_DIR, name="gt_" + str(5 + itr))
         utils.save_image(pred[itr].astype(
-            np.uint8) * 255 / 18, TEST_DIR, name="pred_" + str(5 + itr))
+            np.uint8) * 255 / NUM_OF_CLASSESS, TEST_DIR, name="pred_" + str(5 + itr))
         print("Saved image: %d" % itr)
 
         pa, ma, miu, fwiu = EM._calc_eval_metrics(
@@ -392,7 +392,7 @@ def mode_train(sess, FLAGS, net, train_dataset_reader, validation_dataset_reader
         (len(train_records) //
          FLAGS.batch_size) *
         FLAGS.training_epochs)
-    DISPLAY_STEP = round(MAX_ITERATION // FLAGS.training_epochs)
+    #DISPLAY_STEP = round(MAX_ITERATION // FLAGS.training_epochs)
     print(
         "No. of maximum steps:",
         MAX_ITERATION,
@@ -421,7 +421,7 @@ def mode_train(sess, FLAGS, net, train_dataset_reader, validation_dataset_reader
             summary_writer.add_summary(summary_str, itr)
             if itr % DISPLAY_STEP == 0 and itr != 0:
                 lo.append(train_loss)
-
+            
         if itr % DISPLAY_STEP == 0 and itr != 0:
             valid_images, valid_annotations = validation_dataset_reader.next_batch(
                 FLAGS.batch_size)
@@ -447,7 +447,7 @@ def mode_train(sess, FLAGS, net, train_dataset_reader, validation_dataset_reader
 
             try:
                 plt.clf()
-                plt.ylim(0, 2)
+                plt.ylim(0, 1)
                 plt.plot(np.array(step), np.array(lo))
                 plt.title('Training Loss')
                 plt.ylabel("Loss")
@@ -458,7 +458,7 @@ def mode_train(sess, FLAGS, net, train_dataset_reader, validation_dataset_reader
             
             try:
                 plt.clf()
-                plt.ylim(0, 2)
+                plt.ylim(0, 1)
                 plt.plot(np.array(step), np.array(valid))
                 plt.ylabel("Loss")
                 plt.xlabel("Step")
@@ -469,7 +469,7 @@ def mode_train(sess, FLAGS, net, train_dataset_reader, validation_dataset_reader
 
             try:
                 plt.clf()
-                plt.ylim(0, 2)
+                plt.ylim(0, 1)
                 plt.plot(np.array(step), np.array(lo))
                 plt.plot(np.array(step), np.array(valid))
                 plt.ylabel("Loss")
