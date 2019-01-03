@@ -29,9 +29,10 @@ tf.flags.DEFINE_integer(
     "training_epochs",
     "10",
     "number of epochs for training")
-tf.flags.DEFINE_string("logs_dir", "logs/FCN_FP/", "path to logs directory")
+tf.flags.DEFINE_string("logs_dir", "logs/FCN/", "path to logs directory")
 #tf.flags.DEFINE_string("data_dir", "E:/Dataset/Dataset10k/", "path to dataset")
 tf.flags.DEFINE_string("data_dir", "E:/Dataset/CFPD/", "path to dataset")
+#tf.flags.DEFINE_string("data_dir", "E:/Dataset/MIT_SceneParsing/ADEChallengeData2016/images/", "path to dataset")
 tf.flags.DEFINE_float(
     "learning_rate",
     "1e-4",
@@ -81,10 +82,9 @@ def inference(image, keep_prob):
         # 2.1 VGG
         image_net = fd.vgg_net(weights, processed_image)
         conv_final_layer = image_net["conv5_3"]
-        # Pooling layer for Conv5 layer
+        #
         pool5 = utils.max_pool_2x2(conv_final_layer)
 
-        # FC6 to Conv
         W6 = utils.weight_variable([7, 7, 512, 4096], name="W6")
         b6 = utils.bias_variable([4096], name="b6")
         conv6 = utils.conv2d_basic(pool5, W6, b6)
@@ -93,7 +93,6 @@ def inference(image, keep_prob):
             utils.add_activation_summary(relu6)
         relu_dropout6 = tf.nn.dropout(relu6, keep_prob=keep_prob)
 
-        # FC7 to Conv
         W7 = utils.weight_variable([1, 1, 4096, 4096], name="W7")
         b7 = utils.bias_variable([4096], name="b7")
         conv7 = utils.conv2d_basic(relu_dropout6, W7, b7)
@@ -102,42 +101,12 @@ def inference(image, keep_prob):
             utils.add_activation_summary(relu7)
         relu_dropout7 = tf.nn.dropout(relu7, keep_prob=keep_prob)
 
-        """ Start outfit encoder """
-
-        # FC1 @ 256
-        shape = int(np.prod(relu_dropout7.get_shape()[1:]))
-        fc1w = tf.Variable(tf.truncated_normal([shape, 256],
-                                               dtype=tf.float32,
-                                               stddev=1e-1), name='w1')
-        fc1b = tf.Variable(tf.constant(1.0, shape=[256], dtype=tf.float32),
-                           trainable=True, name='b1')
-        fc7_flat = tf.reshape(relu_dropout7, [-1, shape])
-        fcl1 = tf.nn.bias_add(tf.matmul(fc7_flat, fc1w), fc1b)
-        relu1 = tf.nn.relu(fcl1)
-        relu_dropout1 = tf.nn.dropout(relu1, keep_prob=keep_prob)
-
-        # FC2 @ NUM_OF_CLASSESS
-        fc2w = tf.Variable(tf.truncated_normal([256, NUM_OF_CLASSESS],
-                                               dtype=tf.float32,
-                                               stddev=1e-1), name='w2')
-        fc2b = tf.Variable(tf.constant(1.0, shape=[NUM_OF_CLASSESS], dtype=tf.float32),
-                           trainable=True, name='b2')
-        fcl2 = tf.nn.bias_add(tf.matmul(relu1, fc2w), fc2b)
-
-        # Sigmoid
-        sig_fc2 = tf.nn.sigmoid(fcl2)
-
-        """ End outfit encoder """
-
-        # FC8 to Conv
         W8 = utils.weight_variable([1, 1, 4096, NUM_OF_CLASSESS], name="W8")
         b8 = utils.bias_variable([NUM_OF_CLASSESS], name="b8")
         conv8 = utils.conv2d_basic(relu_dropout7, W8, b8)
         # annotation_pred1 = tf.argmax(conv8, dimension=3, name="prediction1")
 
-        """ now to upscale to actual image size """
-
-        # Upscale1 + Skip/Fusion1
+        # now to upscale to actual image size
         deconv_shape1 = image_net["pool4"].get_shape()
         W_t1 = utils.weight_variable(
             [4, 4, deconv_shape1[3].value, NUM_OF_CLASSESS], name="W_t1")
@@ -147,7 +116,6 @@ def inference(image, keep_prob):
                 image_net["pool4"]))
         fuse_1 = tf.add(conv_t1, image_net["pool4"], name="fuse_1")
 
-        # Upscale2 + Skip/Fusion2
         deconv_shape2 = image_net["pool3"].get_shape()
         W_t2 = utils.weight_variable(
             [4, 4, deconv_shape2[3].value, deconv_shape1[3].value], name="W_t2")
@@ -157,38 +125,19 @@ def inference(image, keep_prob):
                 image_net["pool3"]))
         fuse_2 = tf.add(conv_t2, image_net["pool3"], name="fuse_2")
 
-        """ Start Product with outfit encoder """
-
-        # Deconv
-        shape = tf.shape(conv8)
-        sig_conv = tf.reshape(sig_fc2, shape)
-        w_deconv = utils.weight_variable(
-            [4, 4, deconv_shape2[3].value, deconv_shape1[3].value], name="W_t2")
-        b_deconv = utils.bias_variable([deconv_shape2[3].value], name="b_t2")
-        deconv_sig = utils.conv2d_transpose_strided(
-            sig_conv, w_deconv, b_deconv, output_shape=tf.shape(
-                image_net["pool3"]))
-
-        # Product
-        product_deconv = tf.matmul(deconv_sig, fuse_2)
-
-        """ End Product with outfit encoder """
-
-        # Upscale3 to output
         shape = tf.shape(image)
         deconv_shape3 = tf.stack(
             [shape[0], shape[1], shape[2], NUM_OF_CLASSESS])
         W_t3 = utils.weight_variable(
             [16, 16, NUM_OF_CLASSESS, deconv_shape2[3].value], name="W_t3")
         b_t3 = utils.bias_variable([NUM_OF_CLASSESS], name="b_t3")
-        #conv_t3 = utils.conv2d_transpose_strided(fuse_2, W_t3, b_t3, output_shape=deconv_shape3, stride=8)
         conv_t3 = utils.conv2d_transpose_strided(
-            product_deconv, W_t3, b_t3, output_shape=deconv_shape3, stride=8)
+            fuse_2, W_t3, b_t3, output_shape=deconv_shape3, stride=8)
 
         # prob = tf.nn.softmax(conv_t3, axis =3)
         annotation_pred = tf.argmax(conv_t3, dimension=3, name="prediction")
 
-    return tf.expand_dims(annotation_pred, dim=3), sig_fc2, conv_t3, image_net
+    return tf.expand_dims(annotation_pred, dim=3), conv_t3, image_net
 
 
 """inference
@@ -227,17 +176,10 @@ def main(argv=None):
             IMAGE_SIZE,
             1),
         name="annotation")
-    label = tf.placeholder(
-        tf.int32,
-        shape=(
-            None,
-            NUM_OF_CLASSESS),
-        name="annotation")
     #global_step = tf.Variable(0, trainable=False, name='global_step')
 
     # 2. construct inference network
-    pred_annotation, logits_encoder, logits_decoder, net = inference(
-        image, keep_probability)
+    pred_annotation, logits, net = inference(image, keep_probability)
     tf.summary.image("input_image", image, max_outputs=3)
     tf.summary.image(
         "ground_truth",
@@ -254,17 +196,9 @@ def main(argv=None):
         max_outputs=3)
 
     # 3. loss measure
-    encoder_loss = tf.reduce_mean(
-        (tf.nn.sigmoid_cross_entropy_with_logits(
-            logits=logits_encoder,
-            labels=tf.squeeze(
-                annotation,
-                squeeze_dims=[3]),
-            name="entropy")))
-
     loss = tf.reduce_mean(
         (tf.nn.sparse_softmax_cross_entropy_with_logits(
-            logits=logits_decoder,
+            logits=logits,
             labels=tf.squeeze(
                 annotation,
                 squeeze_dims=[3]),
@@ -325,10 +259,10 @@ def main(argv=None):
     if FLAGS.mode == "train":
 
         fd.mode_train(sess, FLAGS, net, train_dataset_reader, validation_dataset_reader, train_records, pred_annotation,
-                      image, annotation, keep_probability, logits_decoder, train_op, loss, summary_op, summary_writer, saver, DISPLAY_STEP)
+                      image, annotation, keep_probability, logits, train_op, loss, summary_op, summary_writer, saver, DISPLAY_STEP)
 
         fd.mode_test(sess, FLAGS, TEST_DIR, test_dataset_reader, test_records,
-                     pred_annotation, image, annotation, keep_probability, logits_decoder, NUM_OF_CLASSESS)
+                     pred_annotation, image, annotation, keep_probability, logits, NUM_OF_CLASSESS)
 
     # test-random-validation-data mode
     elif FLAGS.mode == "visualize":
@@ -340,7 +274,7 @@ def main(argv=None):
     elif FLAGS.mode == "test":  # heejune added
 
         fd.mode_test(sess, FLAGS, TEST_DIR, test_dataset_reader, test_records,
-                     pred_annotation, image, annotation, keep_probability, logits_decoder, NUM_OF_CLASSESS)
+                     pred_annotation, image, annotation, keep_probability, logits, NUM_OF_CLASSESS)
 
     sess.close()
 

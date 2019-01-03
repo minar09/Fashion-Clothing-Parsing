@@ -305,23 +305,23 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
                 valid_annotations[itr2] = cv2.normalize(
                     valid_annotations[itr2], None, 0, 255, cv2.NORM_MINMAX)
 
-                np.savetxt(FLAGS.logs_dir +
-                           "Image/Crossmatrix" +
+                np.savetxt(TEST_DIR +
+                           "Crossmatrix" +
                            str(itr1 *
                                FLAGS.batch_size +
                                itr2) +
                            ".csv", crossMat, fmt='%4i', delimiter=',')
 
                 # Save input, gt, pred, sum figures for this image
-                plt.savefig(FLAGS.logs_dir + "Image/resultSum_" +
+                plt.savefig(TEST_DIR + "resultSum_" +
                             str(itr1 * FLAGS.batch_size + itr2))
                 # ---------------------------------------------
-                utils.save_image(valid_images[itr2].astype(np.uint8), FLAGS.logs_dir + "Image/",
+                utils.save_image(valid_images[itr2].astype(np.uint8), TEST_DIR,
                                  name="inp_" + str(itr1 * FLAGS.batch_size + itr2))
-                utils.save_image(valid_annotations[itr2].astype(np.uint8), FLAGS.logs_dir + "Image/",
+                utils.save_image(valid_annotations[itr2].astype(np.uint8), TEST_DIR,
                                  name="gt_" + str(itr1 * FLAGS.batch_size + itr2))
                 utils.save_image(pred[itr2].astype(np.uint8),
-                                 FLAGS.logs_dir + "Image/",
+                                 TEST_DIR,
                                  name="pred_" + str(itr1 * 2 + itr2))
 
                 plt.close('all')
@@ -378,8 +378,8 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
     print("Testing time:", end - start, "seconds")
 
 
-def mode_train(sess, FLAGS, net, train_dataset_reader, validation_dataset_reader, train_records, pred_annotation, image, annotation, keep_probability, logits, train_op, loss, summary_op, summary_writer, DISPLAY_STEP=300):
-
+def mode_train(sess, FLAGS, net, train_dataset_reader, validation_dataset_reader, train_records, pred_annotation, image, annotation, keep_probability, logits, train_op, loss, summary_op, summary_writer, saver, DISPLAY_STEP=300):
+    print(">>>>>>>>>>>>>>>>Train mode")
     start = time.time()
 
     valid = list()
@@ -392,6 +392,7 @@ def mode_train(sess, FLAGS, net, train_dataset_reader, validation_dataset_reader
         (len(train_records) //
          FLAGS.batch_size) *
         FLAGS.training_epochs)
+    DISPLAY_STEP = round(MAX_ITERATION // FLAGS.training_epochs)
     print(
         "No. of maximum steps:",
         MAX_ITERATION,
