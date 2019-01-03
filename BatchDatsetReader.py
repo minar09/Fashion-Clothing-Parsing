@@ -43,8 +43,8 @@ class BatchDatset:
         self.__channels = False
         # self.annotations = np.array(
         #    [np.expand_dims(self._transform(filename['annotation']), axis=3) for filename in self.files])
-        #self.annotations = np.array([np.expand_dims(self._transform(filename['annotation']), axis=3) for filename in tqdm(self.files)])  # dressup data
-        self.annotations = np.array([np.expand_dims(self._cfpd_transform(filename['annotation']), axis=3) for filename in tqdm(self.files)])   # CFPD data
+        self.annotations = np.array([np.expand_dims(self._transform(
+            filename['annotation']), axis=3) for filename in tqdm(self.files)])
         print("image.shape:", self.images.shape)
         print("annotations.shape:", self.annotations.shape)
 
@@ -55,24 +55,6 @@ class BatchDatset:
     def _transform(self, filename):
         # 1. read image
         image = misc.imread(filename)
-        # 2. make sure it is RGB image
-        if self.__channels and len(
-                image.shape) < 3:  # make sure images are of shape(h,w,3)
-            image = np.array([image for i in range(3)])
-        # 3. resize it
-        if self.image_options.get("resize",
-                                  False) and self.image_options["resize"]:
-            resize_size = int(self.image_options["resize_size"])
-            resize_image = misc.imresize(
-                image, [resize_size, resize_size], interp='nearest')
-        else:
-            resize_image = image
-
-        return np.array(resize_image)
-        
-    def _cfpd_transform(self, filename):
-        # 1. read image
-        image = filename
         # 2. make sure it is RGB image
         if self.__channels and len(
                 image.shape) < 3:  # make sure images are of shape(h,w,3)

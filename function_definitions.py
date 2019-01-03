@@ -445,31 +445,51 @@ def mode_train(sess, FLAGS, net, train_dataset_reader, validation_dataset_reader
             step.append(itr)
             # print("valid", valid, "step", step)
 
-            plt.ylim(0, 1)
-            plt.plot(step, valid)
-            plt.ylabel("Loss")
-            plt.xlabel("Step")
-            plt.title('Validation Loss')
-            plt.savefig(FLAGS.logs_dir + "validation_loss.jpg")
+            try:
+                plt.clf()
+                plt.ylim(0, 2)
+                plt.plot(np.array(step), np.array(lo))
+                plt.title('Training Loss')
+                plt.ylabel("Loss")
+                plt.xlabel("Step")
+                plt.savefig(FLAGS.logs_dir + "training_loss.jpg")
+            except Exception as err:
+                print(err)
+            
+            try:
+                plt.clf()
+                plt.ylim(0, 2)
+                plt.plot(np.array(step), np.array(valid))
+                plt.ylabel("Loss")
+                plt.xlabel("Step")
+                plt.title('Validation Loss')
+                plt.savefig(FLAGS.logs_dir + "validation_loss.jpg")
+            except Exception as err:
+                print(err)
 
-            plt.clf()
-            plt.ylim(0, 1)
-            plt.plot(step, lo)
-            plt.title('Training Loss')
-            plt.ylabel("Loss")
-            plt.xlabel("Step")
-            plt.savefig(FLAGS.logs_dir + "training_loss.jpg")
+            try:
+                plt.clf()
+                plt.ylim(0, 2)
+                plt.plot(np.array(step), np.array(lo))
+                plt.plot(np.array(step), np.array(valid))
+                plt.ylabel("Loss")
+                plt.xlabel("Step")
+                plt.title('Result')
+                plt.legend(['Training Loss', 'Validation Loss'],
+                           loc='upper right')
+                plt.savefig(FLAGS.logs_dir + "merged_loss.jpg")
+            except Exception as err:
+                print(err)
 
-            plt.clf()
-            plt.ylim(0, 1)
-            plt.plot(step, lo)
-            plt.plot(step, valid)
-            plt.ylabel("Loss")
-            plt.xlabel("Step")
-            plt.title('Result')
-            plt.legend(['Training Loss', 'Validation Loss'],
-                       loc='upper right')
-            plt.savefig(FLAGS.logs_dir + "merged_loss.jpg")
-
+    try:
+        np.savetxt(
+            FLAGS.logs_dir +
+            "training_steps.csv",
+            np.c_[step, lo, valid],
+            fmt='%4i',
+            delimiter=',')
+    except Exception as err:
+        print(err)
+            
     end = time.time()
     print("Learning time:", end - start, "seconds")

@@ -19,6 +19,48 @@ image_mean = [104.00699, 116.66877, 122.67892]
 def read_dataset(data_dir):
     # sample record: {'image': f, 'annotation': annotation_file,
     # 'filename': filename}
+
+    training_records = []
+    traindir = "E:/Dataset/CFPD/trainimages/"
+    print("## Training dir:", traindir)
+    for filename in glob.glob(traindir + '*.jpg'):  # assuming jpg files
+        record = {'image': None, 'annotation': None, 'filename': None}
+        record['image'] = filename
+        record['filename'] = filename
+        record['annotation'] = filename.replace(
+            "jpg", "png")
+        training_records.append(record)
+
+    validation_records = []
+    validationdir = "E:/Dataset/CFPD/valimages/"
+    print("## Validation dir:", validationdir)
+    for filename in glob.glob(
+            validationdir + '*.jpg'):  # assuming jpg files
+        record = {'image': None, 'annotation': None, 'filename': None}
+        record['image'] = filename
+        record['filename'] = filename
+        record['annotation'] = filename.replace(
+            "jpg", "png")
+        validation_records.append(record)
+
+    testing_records = []
+    testdir = "E:/Dataset/CFPD/testimages/"
+    print("## Testing dir:", testdir)
+    for filename in glob.glob(
+            testdir + '*.jpg'):  # assuming jpg files
+        record = {'image': None, 'annotation': None, 'filename': None}
+        record['image'] = filename
+        record['filename'] = filename
+        record['annotation'] = filename.replace(
+            "jpg", "png")
+        testing_records.append(record)
+
+    return training_records, validation_records, testing_records
+
+
+def read_dataset_from_mat_file(data_dir):
+    # sample record: {'image': f, 'annotation': annotation_file,
+    # 'filename': filename}
     training_records = []
     validation_records = []
     testing_records = []
@@ -31,7 +73,7 @@ def read_dataset(data_dir):
     print("## Image dir:", image_dir)
     image_list = os.listdir(image_dir)
     # fashion_dataset = read_mat(annotation_file_path)
-	fashion_dataset = convert_mat_to_dict(annotation_file_path)
+    fashion_dataset = convert_mat_to_dict(annotation_file_path)
 
     for i, each in enumerate(image_list):
         filename = image_dir + each
@@ -39,23 +81,24 @@ def read_dataset(data_dir):
                   'category_label': None, 'color_label': None, 'img_name': None}
         record['image'] = filename
         record['filename'] = filename
-		
+
         # record['category_label'] = fashion_dataset[i][0]
         # record['color_label'] = fashion_dataset[i][1]
         # record['img_name'] = fashion_dataset[i][2]
         # record['annotation'] = fashion_dataset[i][3]
-		
+
         record['category_label'] = fashion_dataset[i]['category_label']
         record['color_label'] = fashion_dataset[i]['color_label']
         record['img_name'] = fashion_dataset[i]['img_name']
         record['annotation'] = fashion_dataset[i]['segmentation']
-		
+
         all_records.append(record)
 
     np.random.shuffle(all_records)
     num_records = len(all_records)
     training_records = all_records[0:int(num_records*0.78)]
-    validation_records = all_records[int(num_records*0.78):int(num_records*0.8)]
+    validation_records = all_records[int(
+        num_records*0.78):int(num_records*0.8)]
     testing_records = all_records[int(num_records*0.8):num_records]
 
     return training_records, validation_records, testing_records
@@ -80,46 +123,46 @@ def read_mat(annotation_file_path):
             fashion_dataset.append(temp)
 
     return fashion_dataset
-    
-    
+
+
 def hdf5_to_list(data):
     x = data[:]
     #x = x.tolist()
     return x
 
-	
+
 def convert_mat_to_dict(mat_file='fashion_parsing_data.mat'):
     f = h5py.File(mat_file, 'r')
     all_ctgs = get_all_ctgs(f)
     iter_ = iter(f.get('#refs#').values())
-	
+
     df = pd.DataFrame()
     for outfit in tqdm(iter_, total=len(f.get('#refs#'))):
         try:
             # img_name
-            ascii_codes = list(outfit.get('img_name').value[:,0])
-            img_name = ''.join([chr(code) for code in ascii_codes ])
+            ascii_codes = list(outfit.get('img_name').value[:, 0])
+            img_name = ''.join([chr(code) for code in ascii_codes])
             print(img_name)
-            
+
             # super pix 2 category
             spix2ctg = outfit.get('category_label').value[0]
-            #pd.Series(spix2ctg).value_counts().plot(kind='bar')
-            #print(spix2ctg.shape)
-            #plt.plot(spix2ctg)
-            #plt.show()
-            
+            # pd.Series(spix2ctg).value_counts().plot(kind='bar')
+            # print(spix2ctg.shape)
+            # plt.plot(spix2ctg)
+            # plt.show()
+
             # super pix 2 color
             spix2clr = outfit.get('color_label').value[0]
-            #print(spix2clr.shape)
-            #plt.plot(spix2clr)
-            #plt.show()
+            # print(spix2clr.shape)
+            # plt.plot(spix2clr)
+            # plt.show()
 
             # super pix
             spixseg = outfit.get('segmentation').value.T
-            #print(spixseg.shape)
+            # print(spixseg.shape)
             # plt.imshow(spixseg)
-            #plt.plot(spixseg)
-            #plt.show()
+            # plt.plot(spixseg)
+            # plt.show()
             # plt.savefig('image.png')
 
             # super pix -> semantic segmentation
@@ -133,10 +176,10 @@ def convert_mat_to_dict(mat_file='fashion_parsing_data.mat'):
                 region = np.argwhere(semseg == i)
                 if region.size != 0:
                     bbox = {
-                        'ymin':int(region.min(0)[0]),
-                        'xmin':int(region.min(0)[1]),
-                        'ymax':int(region.max(0)[0]),
-                        'xmax':int(region.max(0)[1]),
+                        'ymin': int(region.min(0)[0]),
+                        'xmin': int(region.min(0)[1]),
+                        'ymax': int(region.max(0)[0]),
+                        'xmax': int(region.max(0)[1]),
                     }
                     items.append({
                         'bbox': bbox,
@@ -156,7 +199,7 @@ def convert_mat_to_dict(mat_file='fashion_parsing_data.mat'):
     d = df.to_dict(orient='records')
     return d
 
-	
+
 """
     create image filename list for training and validation data (input and annotation)
 """
