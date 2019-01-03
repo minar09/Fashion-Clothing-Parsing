@@ -1,30 +1,78 @@
-# Fashion parsing models in TensorFlow
-1. Tensorflow implementation of [Fully Convolutional Networks for Semantic Segmentation](http://arxiv.org/pdf/1605.06211v1.pdf) (FCNs).
-2. TensorFlow implementation of U-Net
+# CFPD | Colorful Fashion Parsing Data
 
-The implementation is largely based on the reference code provided by the authors of the paper [link](https://github.com/shelhamer/fcn.berkeleyvision.org). 
-1. [Prerequisites](#prerequisites)
-2. [Results](#results)
-3. [Observations](#observations)
+This dataset is used in the paper, [(S. Liu, J. Feng, C. Domokos, H. Xu, J. Huang, Z. Hu, & S. Yan. 2014) CFPD | Fashion parsing with weak color-category labels.](https://sites.google.com/site/fashionparsing/home)
 
-## Prerequisites
- - To train model simply execute `python FCN_FashionParsing.py`
- - To visualize results for a random batch of images use flag `--mode=visualize`
- - `debug` flag can be set during training to add information regarding activations, gradients, variables etc.
- - This [IPython notebook](https://github.com/shekkizh/FCN.tensorflow/blob/master/logs/images/Image_Cmaped.ipynb) can be used to view results in color as below.
+## Details
 
-## Results
-Pretty much used the same network design as in the reference model implementation of the paper in caffe. The weights for the new layers added were initialized with small values, and the learning was done using Adam Optimizer (Learning rate = 1e-4). 
+- 2,682 images
+- 600 x 400 (height, width)
+- pixel-level annotated (segmentation map)
+	- 23 categories
+	- 13 **colors**
+- `make_label.py` makes the followings from `fashon_parsing_data.mat`.
+	- `label/bbox.json`: **bounding box** (for object detection not semantic segmentation).
+	- `label/categories.tsv`
+		- `category_id`
+		- `category`
+- `label/main_categories.tsv` is selected from `categories.tsv` for object detection.
 
-## Observations
- - The small batch size was necessary to fit the training model in memory but explains the slow learning
- - Concepts that had many examples seem to be correctly identified and segmented - in the example above you can see that cars, persons were identified better. I believe this can be solved by training for longer epochs.
- - Also the resizing of images cause loss of information - you can notice this in the fact smaller objects are segmented with less accuracy.
+## Setup Dataset
 
-Now for the gradients,
-  - If you closely watch the gradients you will notice the inital training is almost entirely on the new layers added - it is only after these layers are reasonably trained do we see the VGG layers get some gradient flow. This is understandable as changes the new layers affect the loss objective much more in the beginning.
-  - The earlier layers of the netowrk are initialized with VGG weights and so conceptually would require less tuning unless the train data is extremely varied - which in this case is not.
-  - The first layer of convolutional model captures low level information and since this entrirely dataset dependent you notice the gradients adjusting the first layer weights to accustom the model to the dataset.
-  - The other conv layers from VGG have very small gradients flowing as the concepts captured here are good enough for our end objective - Segmentation. 
-  - This is the core reason **Transfer Learning** works so well. Just thought of pointing this out while here.
+```
+# install the requirements
+pip install -r requirements.txt
 
+# download zip file (name) from author's GoogleDrive
+download.sh
+
+# rename "data" file manually to "data.zip" or run the command below:
+rename data data.zip
+
+# unzip data.zip manually or follow instructions from here (http://stahlworks.com/dev/index.php?tool=zipunzip) to unzip from cmd
+
+# make label/categories.tsv
+# make label/bbox.json
+# from fashon_parsing_data.mat
+python make_label.py
+```
+
+## fashon_parsing_data.mat
+
+### structure
+
+- #refs#
+	- 0, 0A~zz: 2,719 groups (each record may be a image info)
+		- category_label
+			- np.array, float64(actually int), (1, 425)
+			- map: super-pix id (1~425) -> fine category id (1~117)
+		- color_label
+			- np.array, float64(actually int), (1,425)
+			- map: super-pix id (1~425) -> fine color id (1~60)
+		- ?img_name
+			- np.array, uint16, (2~9 etc, 1)
+			- range: 59~108 etc
+			- ???
+		- segmentation
+			- np.array, float32, (400, 600)
+			- map: img pix loc (w, h) -> super-pix id (1~425)
+			- (height, width) (transposing this) is the right orientation.
+	- b~x: 23 datasets (each record means category id)
+		- np.array, uint16, (1, #fine_category)
+		- range: 1~117
+		- fine categories's ids under the cateogry.
+	- y,z,A~K: 13 datasets (each record means color id)
+		- np.array, uint16, (1, #fine_color)
+		- range: 1~60
+		- fine color's ids under the color.
+- all_category_name
+	- np.array, h5py.h5r.Reference, (1, 23)
+	- Each reference correspods the above cateogory keys under #refs#.
+- all_color_name 
+	- np.array, h5py.h5r.Reference, (1, 13)
+	- Each reference correspods the above color keys under #refs#.
+
+
+## Dataset Problem
+
+- Mentioned in this paper's Figure 7, [(P. Tangseng, Z. Wu, & K. Yamaguchi. 2017) Looking at Outfit to Parse Clothing.](https://arxiv.org/pdf/1703.01386.pdf).
+- [This repository](https://github.com/hrsma2i/fashion-parsing/tree/master/data/tmm_dataset_sharing) is the code of the above paper. This code deals with CFPD.
