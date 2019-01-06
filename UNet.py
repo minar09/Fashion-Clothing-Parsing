@@ -27,15 +27,15 @@ FLAGS = tf.flags.FLAGS
 tf.flags.DEFINE_integer("batch_size", "2", "batch size for training")
 tf.flags.DEFINE_integer(
     "training_epochs",
-    "30",
+    "60",
     "number of epochs for training")
-tf.flags.DEFINE_string("logs_dir", "logs/UNet/", "path to logs directory")
+tf.flags.DEFINE_string("logs_dir", "logs/UNet_CRF/", "path to logs directory")
 #tf.flags.DEFINE_string("data_dir", "E:/Dataset/Dataset10k/", "path to dataset")
 tf.flags.DEFINE_string("data_dir", "E:/Dataset/CFPD/", "path to dataset")
 
 tf.flags.DEFINE_float(
     "learning_rate",
-    "1e-10",
+    "1e-8",
     "Learning rate for Adam Optimizer")
 tf.flags.DEFINE_string("model_dir", "Model_zoo/", "Path to vgg model mat")
 tf.flags.DEFINE_bool('debug', "False", "Debug mode: True/ False")

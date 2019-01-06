@@ -1,5 +1,6 @@
 from __future__ import print_function
 import cv2
+import scipy.misc as misc
 import matplotlib.pyplot as plt
 from skimage.color import rgb2gray
 from skimage.color import gray2rgb
@@ -36,19 +37,20 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 def dense_crf(original_image, annotated_image, NUM_OF_CLASSESS, use_2d=True):
     # Converting annotated image to RGB if it is Gray scale
     #print("crf function")
-    print(original_image.shape, annotated_image.shape)
+    #annotated_image = tf.expand_dims(annotated_image, dim=0)
+    #print(original_image.shape, annotated_image.shape)
 
     # Gives no of class labels in the annotated image
     #n_labels = len(set(labels.flat))
     n_labels = NUM_OF_CLASSESS
 
     # Setting up the CRF model
-
     d = dcrf.DenseCRF2D(original_image.shape[1], original_image.shape[0], n_labels)
 
     # get unary potentials (neg log probability)
     processed_probabilities = annotated_image
     softmax = processed_probabilities.transpose((2, 0, 1))
+    #softmax = np.transpose(processed_probabilities, (2, 0, 1))
     #print(softmax.shape)
     U = unary_from_softmax(softmax, scale=None, clip=1e-5)
 
@@ -75,10 +77,16 @@ def dense_crf(original_image, annotated_image, NUM_OF_CLASSESS, use_2d=True):
                         normalization=dcrf.NORMALIZE_SYMMETRIC)
 
     # Run Inference for 5 steps
-    Q = d.inference(5)
+    Q = d.inference(20)
+    #print(Q)
     #print(">>>>>>>>Qshape: ", Q.shape)
+    
     # Find out the most probable class for each pixel.
-    output = np.argmax(Q, axis=0).reshape((original_image.shape[0], original_image.shape[1]))
+    #output = np.argmax(Q, axis=0).reshape((original_image.shape[0], original_image.shape[1]))
+    output = np.argmax(Q, axis=0)
+    output = output.reshape((original_image.shape[0], original_image.shape[1]))
+    #output = tf.expand_dims(output, dim=2)
+    #print(output.shape)
 
     return output
 
@@ -272,10 +280,11 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
     if not os.path.exists(TEST_DIR):
         os.makedirs(TEST_DIR)
 
+    validation_dataset_reader.reset_batch_offset(0)
+    
     crossMats = list()
     mIOU_all = list()
     mFWIOU_all = list()
-    validation_dataset_reader.reset_batch_offset(0)
     PA_all = list()
     MPA_all = list()
 
@@ -283,6 +292,17 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
     mean = EM.AverageMeter()
     miou = EM.AverageMeter()
     fwiou = EM.AverageMeter()
+    
+    crf_crossMats = list()
+    crf_mIOU_all = list()
+    crf_mFWIOU_all = list()
+    crf_PA_all = list()
+    crf_MPA_all = list()
+
+    crf_pixel = EM.AverageMeter()
+    crf_mean = EM.AverageMeter()
+    crf_miou = EM.AverageMeter()
+    crf_fwiou = EM.AverageMeter()
 
     for itr1 in range(validation_dataset_reader.get_num_of_records() // FLAGS.batch_size):
 
@@ -299,7 +319,8 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
         for itr2 in range(FLAGS.batch_size):
 
             try:
-                crfimage, crfoutput = dense_crf(valid_images[itr2].astype(np.uint8), logits[itr2], NUM_OF_CLASSESS)
+                #crfimage, crfoutput = crf(valid_images[itr2].astype(np.uint8), np.array(logits1[itr2]), NUM_OF_CLASSESS)
+                crfoutput = dense_crf(valid_images[itr2].astype(np.uint8), np.array(logits1[itr2]), NUM_OF_CLASSESS)
             
                 fig = plt.figure()
                 pos = 240 + 1
@@ -328,18 +349,18 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
                 
                 pos = 240 + 4
                 plt.subplot(pos)
-                plt.imshow(crfoutput, cmap=plt.get_cmap('nipy_spectral'))
+                plt.imshow(crfoutput.astype(np.uint8), cmap=plt.get_cmap('nipy_spectral'))
                 plt.axis('off')
                 plt.title('CRFPostProcessing')
 
-                # Confusion matrix for this image
+                # Confusion matrix for this image prediction
                 crossMat = EM._calcCrossMat(
                     valid_annotations[itr2].astype(
                         np.uint8), pred[itr2].astype(
                         np.uint8), NUM_OF_CLASSESS)
                 crossMats.append(crossMat)
 
-                # Eval metrics for this image
+                # Eval metrics for this image prediction
                 pa, ma, miu, fwiu = EM._calc_eval_metrics(
                     valid_annotations[itr2].astype(
                         np.uint8), pred[itr2].astype(
@@ -362,11 +383,41 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
                       'Frequency-weighted IoU {fwiou.val:.4f} ({fwiou.avg:.4f})'.format((itr1 * FLAGS.batch_size + itr2), len(valid_records),
                                                                                         pixel=pixel, mean=mean, miou=miou, fwiou=fwiou))
 
+                # Confusion matrix for this image prediction with crf
+                crf_crossMat = EM._calcCrossMat(
+                    valid_annotations[itr2].astype(
+                        np.uint8), crfoutput.astype(
+                        np.uint8), NUM_OF_CLASSESS)
+                crf_crossMats.append(crf_crossMat)
+
+                # Eval metrics for this image prediction with crf
+                crf_pa, crf_ma, crf_miu, crf_fwiu = EM._calc_eval_metrics(
+                    valid_annotations[itr2].astype(
+                        np.uint8), crfoutput.astype(
+                        np.uint8), NUM_OF_CLASSESS)
+
+                crf_pixel.update(crf_pa)
+                crf_mean.update(crf_ma)
+                crf_miou.update(crf_miu)
+                crf_fwiou.update(crf_fwiu)
+
+                crf_PA_all.append(crf_pa)
+                crf_MPA_all.append(crf_ma)
+                crf_mIOU_all.append(crf_miu)
+                crf_mFWIOU_all.append(crf_fwiu)
+
+                print('Test: [{0}/{1}]\t'
+                      'Pixel acc {pixel.val:.4f} ({pixel.avg:.4f})\t'
+                      'Mean acc {mean.val:.4f} ({mean.avg:.4f})\t'
+                      'Mean IoU {miou.val:.4f} ({miou.avg:.4f})\t'
+                      'Frequency-weighted IoU {fwiou.val:.4f} ({fwiou.avg:.4f})'.format((itr1 * FLAGS.batch_size + itr2), len(valid_records),
+                                                                                        pixel=crf_pixel, mean=crf_mean, miou=crf_miou, fwiou=crf_fwiou))
+                                                                                        
                 crfoutput = cv2.normalize(crfoutput, None, 0, 255, cv2.NORM_MINMAX)
                 valid_annotations[itr2] = cv2.normalize(
                     valid_annotations[itr2], None, 0, 255, cv2.NORM_MINMAX)
                     
-                print(cv2.absdiff(crfoutput.astype(np.uint8), valid_annotations[itr2].astype(np.uint8)))
+                #print(cv2.absdiff(crfoutput.astype(np.uint8), valid_annotations[itr2].astype(np.uint8)))
 
                 np.savetxt(TEST_DIR +
                            "Crossmatrix" +
@@ -375,7 +426,7 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
                                itr2) +
                            ".csv", crossMat, fmt='%4i', delimiter=',')
 
-                # Save input, gt, pred, sum figures for this image
+                # Save input, gt, pred, crf_pred, sum figures for this image
                 plt.savefig(TEST_DIR + "resultSum_" +
                             str(itr1 * FLAGS.batch_size + itr2))
                 # ---------------------------------------------
