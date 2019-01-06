@@ -6,17 +6,12 @@ from skimage.color import gray2rgb
 from pydensecrf.utils import unary_from_labels, create_pairwise_bilateral, create_pairwise_gaussian, unary_from_softmax
 from skimage.io import imread, imsave
 from six.moves import xrange
-import BatchDatsetReader as dataset
 import datetime
-import read_MITSceneParsingData as scene_parsing
-import TensorflowUtils as utils
 from PIL import Image
 import tensorflow as tf
 import time
-import EvalMetrics as EM
 import numpy as np
 import scipy.misc as misc
-import function_definitions as fd
 import pydensecrf.densecrf as dcrf
 
     
@@ -81,11 +76,17 @@ def crf(original_image, annotated_image, NUM_OF_CLASSESS, use_2d=True):
     #print(">>>>>>>>Qshape: ", Q.shape)
     # Find out the most probable class for each pixel.
     output = np.argmax(Q, axis=0).reshape((original_image.shape[0], original_image.shape[1]))
+    
+    plt.plot(output)
+    #plt.imshow(crfoutput, cmap=plt.get_cmap('nipy_spectral'))
+    plt.show()
 
     return output
 
     
-input = _transform("1200.jpg")
-gt = _read_annotation("1200.png")
+#input = _transform("1200.jpg")
+input = np.ones((224, 224, 23))
+#gt = _read_annotation("1200.png")
+gt = np.zeros((224, 224, 23))
 output = crf(input, gt, 23)
 print(output)
