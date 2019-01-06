@@ -29,14 +29,65 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 # Annotated image = Which has been labelled by some technique( FCN in this case)
 # Output_image = The final output image after applying CRF
 # Use_2d = boolean variable
-# if use_2d = True specialised 2D fucntions will be applied
+# if use_2d = True specialised 2D functions will be applied
 # else Generic functions will be applied
 
 
-def crf(original_image, annotated_image, use_2d=True):
+def dense_crf(original_image, annotated_image, NUM_OF_CLASSESS, use_2d=True):
+    # Converting annotated image to RGB if it is Gray scale
+    #print("crf function")
+    print(original_image.shape, annotated_image.shape)
+
+    # Gives no of class labels in the annotated image
+    #n_labels = len(set(labels.flat))
+    n_labels = NUM_OF_CLASSESS
+
+    # Setting up the CRF model
+
+    d = dcrf.DenseCRF2D(original_image.shape[1], original_image.shape[0], n_labels)
+
+    # get unary potentials (neg log probability)
+    processed_probabilities = annotated_image
+    softmax = processed_probabilities.transpose((2, 0, 1))
+    #print(softmax.shape)
+    U = unary_from_softmax(softmax, scale=None, clip=1e-5)
+
+    U = np.ascontiguousarray(U)
+    #U = unary_from_labels(labels, n_labels, gt_prob=0.7, zero_unsure=False)
+    d.setUnaryEnergy(U)
+
+    # This potential penalizes small pieces of segmentation that are
+    # spatially isolated -- enforces more spatially consistent segmentations
+    feats = create_pairwise_gaussian(sdims=(3, 3), shape=original_image.shape[:2])
+
+    d.addPairwiseEnergy(feats, compat=3,
+                        kernel=dcrf.DIAG_KERNEL,
+                        normalization=dcrf.NORMALIZE_SYMMETRIC)
+
+    # This creates the color-dependent features --
+    # because the segmentation that we get from CNN are too coarse
+    # and we can use local color features to refine them
+    feats = create_pairwise_bilateral(sdims=(3, 3), schan=(13, 13, 13),
+                                      img=original_image, chdim=2)
+
+    d.addPairwiseEnergy(feats, compat=10,
+                        kernel=dcrf.DIAG_KERNEL,
+                        normalization=dcrf.NORMALIZE_SYMMETRIC)
+
+    # Run Inference for 5 steps
+    Q = d.inference(5)
+    #print(">>>>>>>>Qshape: ", Q.shape)
+    # Find out the most probable class for each pixel.
+    output = np.argmax(Q, axis=0).reshape((original_image.shape[0], original_image.shape[1]))
+
+    return output
+
+
+def crf(original_image, annotated_image, NUM_OF_CLASSESS, use_2d=True):
 
     # Converting annotated image to RGB if it is Gray scale
-    print("crf function")
+    # print("crf function")
+    print(original_image.shape, annotated_image.shape)
 
     # Converting the annotations RGB color to single 32 bit integer
 
@@ -48,7 +99,7 @@ def crf(original_image, annotated_image, use_2d=True):
                                                                                         :,
                                                                                         2] << 16)
 
-    # Convert the 32bit integer color to 0,1, 2, ... labels.
+    # Convert the 32bit integer color to 0, 1, 2, ... labels.
     colors, labels = np.unique(annotated_label, return_inverse=True)
 
     # Creating a mapping back to 32 bit colors
@@ -59,7 +110,7 @@ def crf(original_image, annotated_image, use_2d=True):
 
     # Gives no of class labels in the annotated image
     n_labels = NUM_OF_CLASSESS
-    print("No of labels in the Image are ")
+    # print("No of labels in the Image are ")
 
     # Setting up the CRF model
     if use_2d:
@@ -70,6 +121,7 @@ def crf(original_image, annotated_image, use_2d=True):
 
         # get unary potentials (neg log probability)
         processed_probabilities = annotated_image
+
         softmax = processed_probabilities.transpose((2, 0, 1))
 
         U = unary_from_softmax(softmax)
@@ -112,7 +164,7 @@ def crf(original_image, annotated_image, use_2d=True):
 
     return MAP.reshape(original_image.shape), output
 
-
+    
 #####################################################Optimization functions###################################################
 
 """
@@ -247,6 +299,8 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
         for itr2 in range(FLAGS.batch_size):
 
             try:
+                crfimage, crfoutput = dense_crf(valid_images[itr2].astype(np.uint8), logits[itr2], NUM_OF_CLASSESS)
+            
                 fig = plt.figure()
                 pos = 240 + 1
                 plt.subplot(pos)
@@ -271,6 +325,12 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
                     cmap=plt.get_cmap('nipy_spectral'))
                 plt.axis('off')
                 plt.title('Prediction')
+                
+                pos = 240 + 4
+                plt.subplot(pos)
+                plt.imshow(crfoutput, cmap=plt.get_cmap('nipy_spectral'))
+                plt.axis('off')
+                plt.title('CRFPostProcessing')
 
                 # Confusion matrix for this image
                 crossMat = EM._calcCrossMat(
@@ -302,8 +362,11 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
                       'Frequency-weighted IoU {fwiou.val:.4f} ({fwiou.avg:.4f})'.format((itr1 * FLAGS.batch_size + itr2), len(valid_records),
                                                                                         pixel=pixel, mean=mean, miou=miou, fwiou=fwiou))
 
+                crfoutput = cv2.normalize(crfoutput, None, 0, 255, cv2.NORM_MINMAX)
                 valid_annotations[itr2] = cv2.normalize(
                     valid_annotations[itr2], None, 0, 255, cv2.NORM_MINMAX)
+                    
+                print(cv2.absdiff(crfoutput.astype(np.uint8), valid_annotations[itr2].astype(np.uint8)))
 
                 np.savetxt(TEST_DIR +
                            "Crossmatrix" +
@@ -322,8 +385,9 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
                                  name="gt_" + str(itr1 * FLAGS.batch_size + itr2))
                 utils.save_image(pred[itr2].astype(np.uint8),
                                  TEST_DIR,
-                                 name="pred_" + str(itr1 * 2 + itr2))
-
+                                 name="pred_" + str(itr1 * FLAGS.batch_size + itr2))
+                utils.save_image(crfoutput, TEST_DIR, name="crf_" + str(itr1 * FLAGS.batch_size + itr2))
+                                 
                 plt.close('all')
                 print("Saved image: %d" % (itr1 * FLAGS.batch_size + itr2))
 
@@ -486,7 +550,7 @@ def mode_train(sess, FLAGS, net, train_dataset_reader, validation_dataset_reader
             FLAGS.logs_dir +
             "training_steps.csv",
             np.c_[step, lo, valid],
-            fmt='%4i',
+            fmt='%4f',
             delimiter=',')
     except Exception as err:
         print(err)

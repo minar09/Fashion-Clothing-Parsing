@@ -24,7 +24,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 
 FLAGS = tf.flags.FLAGS
-tf.flags.DEFINE_integer("batch_size", "32", "batch size for training")
+tf.flags.DEFINE_integer("batch_size", "2", "batch size for training")
 tf.flags.DEFINE_integer(
     "training_epochs",
     "30",
@@ -51,6 +51,7 @@ NUM_OF_CLASSESS = 23  # total parsing  23 #cloth main   13  # CFPD
 IMAGE_SIZE = 224
 DISPLAY_STEP = 300
 TEST_DIR = FLAGS.logs_dir + "Image/"
+VIS_DIR = FLAGS.logs_dir + "VIS_Image/"
 
 
 """
@@ -267,7 +268,7 @@ def main(argv=None):
     # test-random-validation-data mode
     elif FLAGS.mode == "visualize":
 
-        fd.mode_visualize(sess, FLAGS, TEST_DIR, validation_dataset_reader,
+        fd.mode_visualize(sess, FLAGS, VIS_DIR, validation_dataset_reader,
                           pred_annotation, image, annotation, keep_probability, NUM_OF_CLASSESS)
 
     # test-full-validation-dataset mode

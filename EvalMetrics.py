@@ -38,6 +38,15 @@ def _calc_eval_metrics(gtimage, predimage, num_classes):
         gt_pixels = []
 
         check_size(predimage, gtimage)
+        
+        # Check classes
+        # gt_labels, gt_labels_count = extract_classes(gtimage)
+        # print(gt_labels)
+        # pred_labels, pred_labels_count = extract_classes(predimage)
+        # print(pred_labels)
+        # assert num_classes == gt_labels_count
+        # print(num_classes, gt_labels_count, pred_labels_count)
+        # assert gt_labels_count == pred_labels_count
 
         for label in range(num_classes):  # 0--> 17
             intersection = 0
@@ -77,11 +86,28 @@ def _calc_eval_metrics(gtimage, predimage, num_classes):
 
             class_intersections.append(intersection)
             gt_pixels.append(gt_class)
+            
+        # Check pixels
+        # assert pixel_sum == get_pixel_area(gtimage)
+        # assert pixel_sum == np.sum(gt_pixels)
+        # print(pixel_sum, get_pixel_area(gtimage), np.sum(gt_pixels))
 
         # Calculate mean accuracy and meanIoU
         mean_accuracy = np.mean(per_class_pixel_accuracy)
         meanIoU = np.mean(IoUs)
-
+        
+        # hist = _calcCrossMat(gtimage, predimage, num_classes)
+        # num_cor_pix = np.diag(hist)
+        # # num of correct pixels
+        # num_cor_pix = np.diag(hist)
+        # # num of gt pixels
+        # num_gt_pix = np.sum(hist, axis=1)
+        # # num of pred pixels
+        # num_pred_pix = np.sum(hist, axis=0)
+        # # IU
+        # denominator = (num_gt_pix + num_pred_pix - num_cor_pix)
+        # print(np.sum(class_intersections), np.sum(num_cor_pix))
+        
         # Calculate pixel accuracy and mean FWIoU
         if (pixel_sum == 0):
             pixel_accuracy_ = 0

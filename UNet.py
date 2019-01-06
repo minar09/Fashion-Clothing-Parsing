@@ -24,7 +24,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 
 FLAGS = tf.flags.FLAGS
-tf.flags.DEFINE_integer("batch_size", "16", "batch size for training")
+tf.flags.DEFINE_integer("batch_size", "2", "batch size for training")
 tf.flags.DEFINE_integer(
     "training_epochs",
     "30",
@@ -35,7 +35,7 @@ tf.flags.DEFINE_string("data_dir", "E:/Dataset/CFPD/", "path to dataset")
 
 tf.flags.DEFINE_float(
     "learning_rate",
-    "1e-4",
+    "1e-10",
     "Learning rate for Adam Optimizer")
 tf.flags.DEFINE_string("model_dir", "Model_zoo/", "Path to vgg model mat")
 tf.flags.DEFINE_bool('debug', "False", "Debug mode: True/ False")
@@ -49,6 +49,7 @@ NUM_OF_CLASSESS = 23  # total parsing  23 #cloth main   13  # CFPD
 IMAGE_SIZE = 224
 DISPLAY_STEP = 300
 TEST_DIR = FLAGS.logs_dir + "Image/"
+VIS_DIR = FLAGS.logs_dir + "VIS_Image/"
 
 
 """
@@ -281,7 +282,7 @@ def main(argv=None):
     # test-random-validation-data mode
     elif FLAGS.mode == "visualize":
 
-        fd.mode_visualize(sess, FLAGS, TEST_DIR, validation_dataset_reader,
+        fd.mode_visualize(sess, FLAGS, VIS_DIR, validation_dataset_reader,
                           pred_annotation, image, annotation, keep_probability, NUM_OF_CLASSESS)
 
     # test-full-validation-dataset mode
