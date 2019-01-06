@@ -35,7 +35,7 @@ tf.flags.DEFINE_string("data_dir", "E:/Dataset/CFPD/", "path to dataset")
 
 tf.flags.DEFINE_float(
     "learning_rate",
-    "1e-8",
+    "1e-4",
     "Learning rate for Adam Optimizer")
 tf.flags.DEFINE_string("model_dir", "Model_zoo/", "Path to vgg model mat")
 tf.flags.DEFINE_bool('debug', "False", "Debug mode: True/ False")
