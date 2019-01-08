@@ -10,11 +10,13 @@ class BatchDatset:
     files = []
     images = []
     annotations = []
+    labels = []
     image_options = {}
     batch_offset = 0
     epochs_completed = 0
+    num_classes = 0
 
-    def __init__(self, records_list, image_options={}):
+    def __init__(self, records_list, image_options={}, NUM_OF_CLASSES=23):
         """
         Intialize a generic file reader with batching for list of files
         :param records_list: list of file records to read -
@@ -28,14 +30,15 @@ class BatchDatset:
         print("Initializing Batch Dataset Reader, It may take minutes...")
         print(image_options)
         self.files = records_list
-        #print("files:", self.files)
+        self.num_classes = NUM_OF_CLASSES
+        # print("files:", self.files)
         self.image_options = image_options
         self._read_images()
 
     def _read_images(self):
         # 1.
         self.__channels = True
-        #self.images = np.array([self._transform(filename['image']) for filename in self.files])
+        # self.images = np.array([self._transform(filename['image']) for filename in self.files])
         # to display the progress info to users
         self.images = np.array([self._transform(filename['image'])
                                 for filename in tqdm(self.files)])
@@ -45,8 +48,13 @@ class BatchDatset:
         #    [np.expand_dims(self._transform(filename['annotation']), axis=3) for filename in self.files])
         self.annotations = np.array([np.expand_dims(self._transform(
             filename['annotation']), axis=3) for filename in tqdm(self.files)])
+
+        self.labels = np.array([self._labelize(filename['label'])
+                                for filename in tqdm(self.files)])
+
         print("image.shape:", self.images.shape)
         print("annotations.shape:", self.annotations.shape)
+        print("labels.shape:", self.labels.shape)
 
     """
         resize images to fixed resolution for the DNN
@@ -70,8 +78,33 @@ class BatchDatset:
 
         return np.array(resize_image)
 
+    def _labelize(self, filename):
+        # 1. read image
+        image = misc.imread(filename)
+        # 3. resize it
+        resize_size = int(self.image_options["resize_size"])
+        resize_image = misc.imresize(
+            image, [resize_size, resize_size], interp='nearest')
+
+        resized_image = np.array(resize_image)
+        image_label = self.make_one_hot(resized_image)
+
+        return image_label
+
+    def make_one_hot(self, image):
+        label = [0] * self.num_classes
+        classes = np.unique(image)
+
+        for each in range(self.num_classes):
+            if each in classes:
+                label[each] = 1
+            else:
+                label[each] = 0
+
+        return label
+
     def get_records(self):
-        return self.images, self.annotations
+        return self.images, self.annotations, self.labels
 
     def reset_batch_offset(self, offset=0):
         self.batch_offset = offset
@@ -103,3 +136,23 @@ class BatchDatset:
 
     def get_num_of_records(self):
         return self.images.shape[0]
+
+    def next_encoder_batch(self, batch_size):
+        start = self.batch_offset
+        self.batch_offset += batch_size
+        if self.batch_offset > self.images.shape[0]:
+            # Finished epoch
+            self.epochs_completed += 1
+            print("****************** Epochs completed: " +
+                  str(self.epochs_completed) + "******************")
+            # Shuffle the data
+            perm = np.arange(self.images.shape[0])
+            np.random.shuffle(perm)
+            self.images = self.images[perm]
+            self.labels = self.labels[perm]
+            # Start next epoch
+            start = 0
+            self.batch_offset = batch_size
+
+        end = self.batch_offset
+        return self.images[start:end], self.labels[start:end]

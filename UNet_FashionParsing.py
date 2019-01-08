@@ -27,9 +27,9 @@ FLAGS = tf.flags.FLAGS
 tf.flags.DEFINE_integer("batch_size", "2", "batch size for training")
 tf.flags.DEFINE_integer(
     "training_epochs",
-    "30",
+    "50",
     "number of epochs for training")
-tf.flags.DEFINE_string("logs_dir", "logs/UNet/", "path to logs directory")
+tf.flags.DEFINE_string("logs_dir", "logs/UNet_CRF/", "path to logs directory")
 #tf.flags.DEFINE_string("data_dir", "E:/Dataset/Dataset10k/", "path to dataset")
 tf.flags.DEFINE_string("data_dir", "E:/Dataset/CFPD/", "path to dataset")
 
@@ -44,8 +44,8 @@ tf.flags.DEFINE_string('mode', "train", "Mode train/ test/ visualize")
 MODEL_URL = 'http://www.vlfeat.org/matconvnet/models/beta16/imagenet-vgg-verydeep-19.mat'
 
 MAX_ITERATION = int(1e5 + 1001)
-# NUM_OF_CLASSESS = 18  # human parsing  59 #cloth   151  # MIT Scene
-NUM_OF_CLASSESS = 23  # total parsing  23 #cloth main   13  # CFPD
+# NUM_OF_CLASSES = 18  # human parsing  59 #cloth   151  # MIT Scene
+NUM_OF_CLASSES = 23  # total parsing  23 #cloth main   13  # CFPD
 IMAGE_SIZE = 224
 DISPLAY_STEP = 300
 TEST_DIR = FLAGS.logs_dir + "Image/"
@@ -67,7 +67,7 @@ def unetinference(image, keep_prob):
         inputs = image
         teacher = tf.placeholder(
             tf.float32, [
-                None, IMAGE_SIZE, IMAGE_SIZE, NUM_OF_CLASSESS])
+                None, IMAGE_SIZE, IMAGE_SIZE, NUM_OF_CLASSES])
         is_training = True
 
         # 1, 1, 3
@@ -146,7 +146,7 @@ def unetinference(image, keep_prob):
         conv_up4_1 = utils.conv(concated4, filters=64, l2_reg_scale=l2_reg)
         conv_up4_2 = utils.conv(conv_up4_1, filters=64, l2_reg_scale=l2_reg)
         outputs = utils.conv(
-            conv_up4_2, filters=NUM_OF_CLASSESS, kernel_size=[
+            conv_up4_2, filters=NUM_OF_CLASSES, kernel_size=[
                 1, 1], activation=None)
         annotation_pred = tf.argmax(outputs, dimension=3, name="prediction")
 
@@ -277,19 +277,19 @@ def main(argv=None):
                       image, annotation, keep_probability, logits, train_op, loss, summary_op, summary_writer, saver, DISPLAY_STEP)
 
         fd.mode_test(sess, FLAGS, TEST_DIR, test_dataset_reader, test_records,
-                     pred_annotation, image, annotation, keep_probability, logits, NUM_OF_CLASSESS)
+                     pred_annotation, image, annotation, keep_probability, logits, NUM_OF_CLASSES)
 
     # test-random-validation-data mode
     elif FLAGS.mode == "visualize":
 
         fd.mode_visualize(sess, FLAGS, VIS_DIR, validation_dataset_reader,
-                          pred_annotation, image, annotation, keep_probability, NUM_OF_CLASSESS)
+                          pred_annotation, image, annotation, keep_probability, NUM_OF_CLASSES)
 
     # test-full-validation-dataset mode
     elif FLAGS.mode == "test":  # heejune added
 
         fd.mode_test(sess, FLAGS, TEST_DIR, test_dataset_reader, test_records,
-                     pred_annotation, image, annotation, keep_probability, logits, NUM_OF_CLASSESS)
+                     pred_annotation, image, annotation, keep_probability, logits, NUM_OF_CLASSES)
 
     sess.close()
 

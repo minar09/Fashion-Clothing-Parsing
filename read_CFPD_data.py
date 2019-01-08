@@ -29,6 +29,8 @@ def read_dataset(data_dir):
         record['filename'] = filename
         record['annotation'] = filename.replace(
             "jpg", "png")
+        record['label'] = filename.replace(
+            "jpg", "png")
         training_records.append(record)
 
     validation_records = []
@@ -41,6 +43,8 @@ def read_dataset(data_dir):
         record['filename'] = filename
         record['annotation'] = filename.replace(
             "jpg", "png")
+        record['label'] = filename.replace(
+            "jpg", "png")
         validation_records.append(record)
 
     testing_records = []
@@ -52,6 +56,8 @@ def read_dataset(data_dir):
         record['image'] = filename
         record['filename'] = filename
         record['annotation'] = filename.replace(
+            "jpg", "png")
+        record['label'] = filename.replace(
             "jpg", "png")
         testing_records.append(record)
 

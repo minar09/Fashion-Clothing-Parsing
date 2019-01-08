@@ -34,7 +34,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 # else Generic functions will be applied
 
 
-def dense_crf(original_image, annotated_image, NUM_OF_CLASSESS, use_2d=True):
+def crf(original_image, annotated_image, NUM_OF_CLASSES, use_2d=True):
     # Converting annotated image to RGB if it is Gray scale
     #print("crf function")
     #annotated_image = tf.expand_dims(annotated_image, dim=0)
@@ -42,16 +42,17 @@ def dense_crf(original_image, annotated_image, NUM_OF_CLASSESS, use_2d=True):
 
     # Gives no of class labels in the annotated image
     #n_labels = len(set(labels.flat))
-    n_labels = NUM_OF_CLASSESS
+    n_labels = NUM_OF_CLASSES
 
     # Setting up the CRF model
-    d = dcrf.DenseCRF2D(original_image.shape[1], original_image.shape[0], n_labels)
+    d = dcrf.DenseCRF2D(
+        original_image.shape[1], original_image.shape[0], n_labels)
 
     # get unary potentials (neg log probability)
     processed_probabilities = annotated_image
     softmax = processed_probabilities.transpose((2, 0, 1))
     #softmax = np.transpose(processed_probabilities, (2, 0, 1))
-    #print(softmax.shape)
+    # print(softmax.shape)
     U = unary_from_softmax(softmax, scale=None, clip=1e-5)
 
     U = np.ascontiguousarray(U)
@@ -60,7 +61,8 @@ def dense_crf(original_image, annotated_image, NUM_OF_CLASSESS, use_2d=True):
 
     # This potential penalizes small pieces of segmentation that are
     # spatially isolated -- enforces more spatially consistent segmentations
-    feats = create_pairwise_gaussian(sdims=(3, 3), shape=original_image.shape[:2])
+    feats = create_pairwise_gaussian(
+        sdims=(3, 3), shape=original_image.shape[:2])
 
     d.addPairwiseEnergy(feats, compat=3,
                         kernel=dcrf.DIAG_KERNEL,
@@ -69,7 +71,7 @@ def dense_crf(original_image, annotated_image, NUM_OF_CLASSESS, use_2d=True):
     # This creates the color-dependent features --
     # because the segmentation that we get from CNN are too coarse
     # and we can use local color features to refine them
-    feats = create_pairwise_bilateral(sdims=(3, 3), schan=(13, 13, 13),
+    feats = create_pairwise_bilateral(sdims=(80, 80), schan=(13, 13, 13),
                                       img=original_image, chdim=2)
 
     d.addPairwiseEnergy(feats, compat=10,
@@ -77,102 +79,19 @@ def dense_crf(original_image, annotated_image, NUM_OF_CLASSESS, use_2d=True):
                         normalization=dcrf.NORMALIZE_SYMMETRIC)
 
     # Run Inference for 5 steps
-    Q = d.inference(20)
-    #print(Q)
+    Q = d.inference(5)
+    # print(Q)
     #print(">>>>>>>>Qshape: ", Q.shape)
-    
+
     # Find out the most probable class for each pixel.
     #output = np.argmax(Q, axis=0).reshape((original_image.shape[0], original_image.shape[1]))
     output = np.argmax(Q, axis=0)
     output = output.reshape((original_image.shape[0], original_image.shape[1]))
-    #output = tf.expand_dims(output, dim=2)
-    #print(output.shape)
+    # print(output.shape)
 
     return output
 
 
-def crf(original_image, annotated_image, NUM_OF_CLASSESS, use_2d=True):
-
-    # Converting annotated image to RGB if it is Gray scale
-    # print("crf function")
-    print(original_image.shape, annotated_image.shape)
-
-    # Converting the annotations RGB color to single 32 bit integer
-
-    annotated_label = annotated_image[:,
-                                      :,
-                                      0] + (annotated_image[:,
-                                                            :,
-                                                            1] << 8) + (annotated_image[:,
-                                                                                        :,
-                                                                                        2] << 16)
-
-    # Convert the 32bit integer color to 0, 1, 2, ... labels.
-    colors, labels = np.unique(annotated_label, return_inverse=True)
-
-    # Creating a mapping back to 32 bit colors
-    colorize = np.empty((len(colors), 3), np.uint8)
-    colorize[:, 0] = (colors & 0x0000FF)
-    colorize[:, 1] = (colors & 0x00FF00) >> 8
-    colorize[:, 2] = (colors & 0xFF0000) >> 16
-
-    # Gives no of class labels in the annotated image
-    n_labels = NUM_OF_CLASSESS
-    # print("No of labels in the Image are ")
-
-    # Setting up the CRF model
-    if use_2d:
-        d = dcrf.DenseCRF2D(
-            original_image.shape[1],
-            original_image.shape[0],
-            n_labels)
-
-        # get unary potentials (neg log probability)
-        processed_probabilities = annotated_image
-
-        softmax = processed_probabilities.transpose((2, 0, 1))
-
-        U = unary_from_softmax(softmax)
-        # U = unary_from_labels(labels, n_labels, gt_prob=0.7, zero_unsure=False)
-        d.setUnaryEnergy(U)
-
-        # This adds the color-independent term, features are the locations
-        # only.
-        d.addPairwiseGaussian(sxy=(3, 3), compat=3, kernel=dcrf.DIAG_KERNEL,
-                              normalization=dcrf.NORMALIZE_SYMMETRIC)
-
-        # This adds the color-dependent term, i.e. features are (x,y,r,g,b).
-        d.addPairwiseBilateral(
-            sxy=(
-                10,
-                10),
-            srgb=(
-                13,
-                13,
-                13),
-            rgbim=original_image,
-            compat=10,
-            kernel=dcrf.DIAG_KERNEL,
-            normalization=dcrf.NORMALIZE_SYMMETRIC)
-
-    # Run Inference for 5 steps
-    Q = d.inference(20)
-
-    # Find out the most probable class for each pixel.
-    MAP = np.argmax(Q, axis=0)
-
-    # Convert the MAP (labels) back to the corresponding colors and save the image.
-    # Note that there is no "unknown" here anymore, no matter what we had at
-    # first.
-    MAP = colorize[MAP, :]
-
-    # Get output
-    output = MAP.reshape(original_image.shape)
-    output = rgb2gray(output)
-
-    return MAP.reshape(original_image.shape), output
-
-    
 #####################################################Optimization functions###################################################
 
 """
@@ -224,7 +143,7 @@ def vgg_net(weights, image):
     return net
 
 
-def mode_visualize(sess, FLAGS, TEST_DIR, validation_dataset_reader, pred_annotation, image, annotation, keep_probability, NUM_OF_CLASSESS):
+def mode_visualize(sess, FLAGS, TEST_DIR, validation_dataset_reader, pred_annotation, image, annotation, keep_probability, NUM_OF_CLASSES):
     if not os.path.exists(TEST_DIR):
         os.makedirs(TEST_DIR)
 
@@ -244,19 +163,25 @@ def mode_visualize(sess, FLAGS, TEST_DIR, validation_dataset_reader, pred_annota
     miou = EM.AverageMeter()
     fwiou = EM.AverageMeter()
 
+    crf_pixel = EM.AverageMeter()
+    crf_mean = EM.AverageMeter()
+    crf_miou = EM.AverageMeter()
+    crf_fwiou = EM.AverageMeter()
+
     for itr in range(FLAGS.batch_size):
         utils.save_image(valid_images[itr].astype(
             np.uint8), TEST_DIR, name="inp_" + str(5 + itr))
         utils.save_image(valid_annotations[itr].astype(
-            np.uint8) * 255 / NUM_OF_CLASSESS, TEST_DIR, name="gt_" + str(5 + itr))
+            np.uint8) * 255 / NUM_OF_CLASSES, TEST_DIR, name="gt_" + str(5 + itr))
         utils.save_image(pred[itr].astype(
-            np.uint8) * 255 / NUM_OF_CLASSESS, TEST_DIR, name="pred_" + str(5 + itr))
+            np.uint8) * 255 / NUM_OF_CLASSES, TEST_DIR, name="pred_" + str(5 + itr))
         print("Saved image: %d" % itr)
 
+        # Eval metrics for this image prediction
         pa, ma, miu, fwiu = EM._calc_eval_metrics(
             valid_annotations[itr].astype(
                 np.uint8), pred[itr].astype(
-                np.uint8), NUM_OF_CLASSESS)
+                np.uint8), NUM_OF_CLASSES)
 
         pixel.update(pa)
         mean.update(ma)
@@ -269,11 +194,183 @@ def mode_visualize(sess, FLAGS, TEST_DIR, validation_dataset_reader, pred_annota
               'Frequency-weighted IoU {fwiou.val:.4f} ({fwiou.avg:.4f})'.format(
                   pixel=pixel, mean=mean, miou=miou, fwiou=fwiou))
 
+        # Eval metrics for this image prediction with crf
+        crf_pa, crf_ma, crf_miu, crf_fwiu = EM._calc_eval_metrics(
+            valid_annotations[itr2].astype(
+                np.uint8), crfoutput.astype(
+                np.uint8), NUM_OF_CLASSES)
+
+        crf_pixel.update(crf_pa)
+        crf_mean.update(crf_ma)
+        crf_miou.update(crf_miu)
+        crf_fwiou.update(crf_fwiu)
+
+        print('Pixel acc (CRF): {pixel.val:.4f} ({pixel.avg:.4f}),\t'
+              'Mean acc (CRF): {mean.val:.4f} ({mean.avg:.4f}),\t'
+              'Mean IoU (CRF): {miou.val:.4f} ({miou.avg:.4f}),\t'
+              'Frequency-weighted IoU (CRF): {fwiou.val:.4f} ({fwiou.avg:.4f})'.format(len(valid_records),
+                                                                                       pixel=crf_pixel, mean=crf_mean, miou=crf_miou, fwiou=crf_fwiou))
+
     print(' * Pixel acc: {pixel.avg:.4f}, Mean acc: {mean.avg:.4f}, Mean IoU: {miou.avg:.4f}, Frequency-weighted IoU: {fwiou.avg:.4f}'
           .format(pixel=pixel, mean=mean, miou=miou, fwiou=fwiou))
+    print(' * Pixel acc (CRF): {pixel.avg:.4f}, Mean acc (CRF): {mean.avg:.4f}, Mean IoU (CRF): {miou.avg:.4f}, Frequency-weighted IoU (CRF): {fwiou.avg:.4f}'
+          .format(pixel=crf_pixel, mean=crf_mean, miou=crf_miou, fwiou=crf_fwiou))
 
 
-def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, pred_annotation, image, annotation, keep_probability, logits, NUM_OF_CLASSESS):
+def mode_train(sess, FLAGS, net, train_dataset_reader, validation_dataset_reader, train_records, pred_annotation, image, annotation, keep_probability, logits, train_op, loss, summary_op, summary_writer, saver, DISPLAY_STEP=300, encoder_training=False, loss_encoder=None, train_encoder_op=None, label=None, train_encoder_dataset_reader=None, validation_encoder_dataset_reader=None):
+    print(">>>>>>>>>>>>>>>>Train mode")
+    start = time.time()
+
+    # Start encoder training
+
+    if encoder_training:
+        for epoch in range(10):
+
+            # Training
+            for batch in range(round(train_encoder_dataset_reader.get_num_of_records() // FLAGS.batch_size)):
+                train_images, train_labels = train_encoder_dataset_reader.next_encoder_batch(
+                    FLAGS.batch_size)
+
+                feed_dict = {
+                    image: train_images,
+                    label: train_labels,
+                    keep_probability: 0.50}
+
+                _, encoder_loss = sess.run(
+                    [train_encoder_op, loss_encoder], feed_dict=feed_dict)
+                print("Encoder training - Epoch:%d, batch: %d, Training Loss:%g" %
+                      (epoch, batch, encoder_loss))
+
+            # Validation
+            for batch in range(round(validation_encoder_dataset_reader.get_num_of_records() // FLAGS.batch_size)):
+                valid_images, valid_labels = validation_encoder_dataset_reader.next_encoder_batch(
+                    FLAGS.batch_size)
+
+                feed_dict = {
+                    image: valid_images,
+                    label: valid_labels,
+                    keep_probability: 1.00}
+
+                encoder_loss = sess.run(loss_encoder, feed_dict=feed_dict)
+                print("Encoder training - Epoch:%d, batch: %d, Validation Loss:%g" %
+                      (epoch, batch, encoder_loss))
+
+    # Start decoder training
+
+    valid = list()
+    step = list()
+    lo = list()
+
+    global_step = sess.run(net['global_step'])
+    global_step = 0
+    MAX_ITERATION = round(
+        (train_dataset_reader.get_num_of_records() //
+         FLAGS.batch_size) *
+        FLAGS.training_epochs)
+    #DISPLAY_STEP = round(MAX_ITERATION // FLAGS.training_epochs)
+    print(
+        "No. of maximum steps:",
+        MAX_ITERATION,
+        " Training epochs:",
+        FLAGS.training_epochs)
+
+    for itr in xrange(global_step, MAX_ITERATION):
+        # 6.1 load train and GT images
+        train_images, train_annotations = train_dataset_reader.next_batch(
+            FLAGS.batch_size)
+        #print("train_image:", train_images.shape)
+        #print("annotation :", train_annotations.shape)
+
+        feed_dict = {
+            image: train_images,
+            annotation: train_annotations,
+            keep_probability: 0.85}
+
+        # 6.2 training
+        sess.run(train_op, feed_dict=feed_dict)
+
+        if itr % 10 == 0:
+            train_loss, summary_str = sess.run(
+                [loss, summary_op], feed_dict=feed_dict)
+            print("Step: %d, Train_loss:%g" % (itr, train_loss))
+            summary_writer.add_summary(summary_str, itr)
+            if itr % DISPLAY_STEP == 0 and itr != 0:
+                lo.append(train_loss)
+
+        if itr % DISPLAY_STEP == 0 and itr != 0:
+            valid_images, valid_annotations = validation_dataset_reader.next_batch(
+                FLAGS.batch_size)
+            valid_loss = sess.run(
+                loss,
+                feed_dict={
+                    image: valid_images,
+                    annotation: valid_annotations,
+                    keep_probability: 1.0})
+            print(
+                "%s ---> Validation_loss: %g" %
+                (datetime.datetime.now(), valid_loss))
+            global_step = sess.run(net['global_step'])
+            saver.save(
+                sess,
+                FLAGS.logs_dir +
+                "model.ckpt",
+                global_step=global_step)
+
+            valid.append(valid_loss)
+            step.append(itr)
+            # print("valid", valid, "step", step)
+
+            try:
+                plt.clf()
+                plt.ylim(0, 1)
+                plt.plot(np.array(step), np.array(lo))
+                plt.title('Training Loss')
+                plt.ylabel("Loss")
+                plt.xlabel("Step")
+                plt.savefig(FLAGS.logs_dir + "training_loss.jpg")
+            except Exception as err:
+                print(err)
+
+            try:
+                plt.clf()
+                plt.ylim(0, 1)
+                plt.plot(np.array(step), np.array(valid))
+                plt.ylabel("Loss")
+                plt.xlabel("Step")
+                plt.title('Validation Loss')
+                plt.savefig(FLAGS.logs_dir + "validation_loss.jpg")
+            except Exception as err:
+                print(err)
+
+            try:
+                plt.clf()
+                plt.ylim(0, 1)
+                plt.plot(np.array(step), np.array(lo))
+                plt.plot(np.array(step), np.array(valid))
+                plt.ylabel("Loss")
+                plt.xlabel("Step")
+                plt.title('Result')
+                plt.legend(['Training Loss', 'Validation Loss'],
+                           loc='upper right')
+                plt.savefig(FLAGS.logs_dir + "merged_loss.jpg")
+            except Exception as err:
+                print(err)
+
+    try:
+        np.savetxt(
+            FLAGS.logs_dir +
+            "training_steps.csv",
+            np.c_[step, lo, valid],
+            fmt='%4f',
+            delimiter=',')
+    except Exception as err:
+        print(err)
+
+    end = time.time()
+    print("Learning time:", end - start, "seconds")
+
+
+def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, pred_annotation, image, annotation, keep_probability, logits, NUM_OF_CLASSES):
     print(">>>>>>>>>>>>>>>>Test mode")
     start = time.time()
 
@@ -281,7 +378,7 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
         os.makedirs(TEST_DIR)
 
     validation_dataset_reader.reset_batch_offset(0)
-    
+
     crossMats = list()
     mIOU_all = list()
     mFWIOU_all = list()
@@ -292,7 +389,7 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
     mean = EM.AverageMeter()
     miou = EM.AverageMeter()
     fwiou = EM.AverageMeter()
-    
+
     crf_crossMats = list()
     crf_mIOU_all = list()
     crf_mFWIOU_all = list()
@@ -319,9 +416,9 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
         for itr2 in range(FLAGS.batch_size):
 
             try:
-                #crfimage, crfoutput = crf(valid_images[itr2].astype(np.uint8), np.array(logits1[itr2]), NUM_OF_CLASSESS)
-                crfoutput = dense_crf(valid_images[itr2].astype(np.uint8), np.array(logits1[itr2]), NUM_OF_CLASSESS)
-            
+                crfoutput = crf(valid_images[itr2].astype(
+                    np.uint8), np.array(logits1[itr2]), NUM_OF_CLASSES)
+
                 fig = plt.figure()
                 pos = 240 + 1
                 plt.subplot(pos)
@@ -346,10 +443,11 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
                     cmap=plt.get_cmap('nipy_spectral'))
                 plt.axis('off')
                 plt.title('Prediction')
-                
+
                 pos = 240 + 4
                 plt.subplot(pos)
-                plt.imshow(crfoutput.astype(np.uint8), cmap=plt.get_cmap('nipy_spectral'))
+                plt.imshow(crfoutput.astype(np.uint8),
+                           cmap=plt.get_cmap('nipy_spectral'))
                 plt.axis('off')
                 plt.title('CRFPostProcessing')
 
@@ -357,14 +455,14 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
                 crossMat = EM._calcCrossMat(
                     valid_annotations[itr2].astype(
                         np.uint8), pred[itr2].astype(
-                        np.uint8), NUM_OF_CLASSESS)
+                        np.uint8), NUM_OF_CLASSES)
                 crossMats.append(crossMat)
 
                 # Eval metrics for this image prediction
                 pa, ma, miu, fwiu = EM._calc_eval_metrics(
                     valid_annotations[itr2].astype(
                         np.uint8), pred[itr2].astype(
-                        np.uint8), NUM_OF_CLASSESS)
+                        np.uint8), NUM_OF_CLASSES)
 
                 pixel.update(pa)
                 mean.update(ma)
@@ -387,14 +485,14 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
                 crf_crossMat = EM._calcCrossMat(
                     valid_annotations[itr2].astype(
                         np.uint8), crfoutput.astype(
-                        np.uint8), NUM_OF_CLASSESS)
+                        np.uint8), NUM_OF_CLASSES)
                 crf_crossMats.append(crf_crossMat)
 
                 # Eval metrics for this image prediction with crf
                 crf_pa, crf_ma, crf_miu, crf_fwiu = EM._calc_eval_metrics(
                     valid_annotations[itr2].astype(
                         np.uint8), crfoutput.astype(
-                        np.uint8), NUM_OF_CLASSESS)
+                        np.uint8), NUM_OF_CLASSES)
 
                 crf_pixel.update(crf_pa)
                 crf_mean.update(crf_ma)
@@ -406,17 +504,18 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
                 crf_mIOU_all.append(crf_miu)
                 crf_mFWIOU_all.append(crf_fwiu)
 
-                print('Test: [{0}/{1}]\t'
-                      'Pixel acc {pixel.val:.4f} ({pixel.avg:.4f})\t'
-                      'Mean acc {mean.val:.4f} ({mean.avg:.4f})\t'
-                      'Mean IoU {miou.val:.4f} ({miou.avg:.4f})\t'
-                      'Frequency-weighted IoU {fwiou.val:.4f} ({fwiou.avg:.4f})'.format((itr1 * FLAGS.batch_size + itr2), len(valid_records),
-                                                                                        pixel=crf_pixel, mean=crf_mean, miou=crf_miou, fwiou=crf_fwiou))
-                                                                                        
-                crfoutput = cv2.normalize(crfoutput, None, 0, 255, cv2.NORM_MINMAX)
+                print('Test (CRF): [{0}/{1}],\t'
+                      'Pixel acc (CRF): {pixel.val:.4f} ({pixel.avg:.4f}),\t'
+                      'Mean acc (CRF): {mean.val:.4f} ({mean.avg:.4f}),\t'
+                      'Mean IoU (CRF): {miou.val:.4f} ({miou.avg:.4f}),\t'
+                      'Frequency-weighted IoU (CRF): {fwiou.val:.4f} ({fwiou.avg:.4f})'.format((itr1 * FLAGS.batch_size + itr2), len(valid_records),
+                                                                                               pixel=crf_pixel, mean=crf_mean, miou=crf_miou, fwiou=crf_fwiou))
+
+                crfoutput = cv2.normalize(
+                    crfoutput, None, 0, 255, cv2.NORM_MINMAX)
                 valid_annotations[itr2] = cv2.normalize(
                     valid_annotations[itr2], None, 0, 255, cv2.NORM_MINMAX)
-                    
+
                 #print(cv2.absdiff(crfoutput.astype(np.uint8), valid_annotations[itr2].astype(np.uint8)))
 
                 np.savetxt(TEST_DIR +
@@ -437,8 +536,9 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
                 utils.save_image(pred[itr2].astype(np.uint8),
                                  TEST_DIR,
                                  name="pred_" + str(itr1 * FLAGS.batch_size + itr2))
-                utils.save_image(crfoutput, TEST_DIR, name="crf_" + str(itr1 * FLAGS.batch_size + itr2))
-                                 
+                utils.save_image(crfoutput, TEST_DIR, name="crf_" +
+                                 str(itr1 * FLAGS.batch_size + itr2))
+
                 plt.close('all')
                 print("Saved image: %d" % (itr1 * FLAGS.batch_size + itr2))
 
@@ -447,6 +547,8 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
 
     print(' * Pixel acc: {pixel.avg:.4f}, Mean acc: {mean.avg:.4f}, Mean IoU: {miou.avg:.4f}, Frequency-weighted IoU: {fwiou.avg:.4f}'
           .format(pixel=pixel, mean=mean, miou=miou, fwiou=fwiou))
+    print(' * Pixel acc (CRF): {pixel.avg:.4f}, Mean acc (CRF): {mean.avg:.4f}, Mean IoU (CRF): {miou.avg:.4f}, Frequency-weighted IoU (CRF): {fwiou.avg:.4f}'
+          .format(pixel=crf_pixel, mean=crf_mean, miou=crf_miou, fwiou=crf_fwiou))
 
     try:
         np.savetxt(
@@ -486,125 +588,46 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
             fmt='%4f',
             delimiter=',')
 
+        # Prediction with CRF
+        np.savetxt(
+            FLAGS.logs_dir +
+            "CRF_Crossmatrix.csv",
+            np.sum(
+                crf_crossMats,
+                axis=0),
+            fmt='%4i',
+            delimiter=',')
+        np.savetxt(
+            FLAGS.logs_dir +
+            "CRF_PixelAccuracies" +
+            ".csv",
+            crf_PA_all,
+            fmt='%4f',
+            delimiter=',')
+        np.savetxt(
+            FLAGS.logs_dir +
+            "CRF_MeanAccuracies" +
+            ".csv",
+            crf_MPA_all,
+            fmt='%4f',
+            delimiter=',')
+        np.savetxt(
+            FLAGS.logs_dir +
+            "CRF_mIoUs" +
+            ".csv",
+            crf_mIOU_all,
+            fmt='%4f',
+            delimiter=',')
+        np.savetxt(
+            FLAGS.logs_dir +
+            "CRF_mFWIoUs" +
+            ".csv",
+            crf_mFWIOU_all,
+            fmt='%4f',
+            delimiter=',')
+
     except Exception as err:
         print(err)
 
     end = time.time()
     print("Testing time:", end - start, "seconds")
-
-
-def mode_train(sess, FLAGS, net, train_dataset_reader, validation_dataset_reader, train_records, pred_annotation, image, annotation, keep_probability, logits, train_op, loss, summary_op, summary_writer, saver, DISPLAY_STEP=300):
-    print(">>>>>>>>>>>>>>>>Train mode")
-    start = time.time()
-
-    valid = list()
-    step = list()
-    lo = list()
-
-    global_step = sess.run(net['global_step'])
-    global_step = 0
-    MAX_ITERATION = round(
-        (len(train_records) //
-         FLAGS.batch_size) *
-        FLAGS.training_epochs)
-    #DISPLAY_STEP = round(MAX_ITERATION // FLAGS.training_epochs)
-    print(
-        "No. of maximum steps:",
-        MAX_ITERATION,
-        " Training epochs:",
-        FLAGS.training_epochs)
-
-    for itr in xrange(global_step, MAX_ITERATION):
-        # 6.1 load train and GT images
-        train_images, train_annotations = train_dataset_reader.next_batch(
-            FLAGS.batch_size)
-        #print("train_image:", train_images.shape)
-        #print("annotation :", train_annotations.shape)
-
-        feed_dict = {
-            image: train_images,
-            annotation: train_annotations,
-            keep_probability: 0.85}
-
-        # 6.2 training
-        sess.run(train_op, feed_dict=feed_dict)
-
-        if itr % 10 == 0:
-            train_loss, summary_str = sess.run(
-                [loss, summary_op], feed_dict=feed_dict)
-            print("Step: %d, Train_loss:%g" % (itr, train_loss))
-            summary_writer.add_summary(summary_str, itr)
-            if itr % DISPLAY_STEP == 0 and itr != 0:
-                lo.append(train_loss)
-            
-        if itr % DISPLAY_STEP == 0 and itr != 0:
-            valid_images, valid_annotations = validation_dataset_reader.next_batch(
-                FLAGS.batch_size)
-            valid_loss = sess.run(
-                loss,
-                feed_dict={
-                    image: valid_images,
-                    annotation: valid_annotations,
-                    keep_probability: 1.0})
-            print(
-                "%s ---> Validation_loss: %g" %
-                (datetime.datetime.now(), valid_loss))
-            global_step = sess.run(net['global_step'])
-            saver.save(
-                sess,
-                FLAGS.logs_dir +
-                "model.ckpt",
-                global_step=global_step)
-
-            valid.append(valid_loss)
-            step.append(itr)
-            # print("valid", valid, "step", step)
-
-            try:
-                plt.clf()
-                plt.ylim(0, 1)
-                plt.plot(np.array(step), np.array(lo))
-                plt.title('Training Loss')
-                plt.ylabel("Loss")
-                plt.xlabel("Step")
-                plt.savefig(FLAGS.logs_dir + "training_loss.jpg")
-            except Exception as err:
-                print(err)
-            
-            try:
-                plt.clf()
-                plt.ylim(0, 1)
-                plt.plot(np.array(step), np.array(valid))
-                plt.ylabel("Loss")
-                plt.xlabel("Step")
-                plt.title('Validation Loss')
-                plt.savefig(FLAGS.logs_dir + "validation_loss.jpg")
-            except Exception as err:
-                print(err)
-
-            try:
-                plt.clf()
-                plt.ylim(0, 1)
-                plt.plot(np.array(step), np.array(lo))
-                plt.plot(np.array(step), np.array(valid))
-                plt.ylabel("Loss")
-                plt.xlabel("Step")
-                plt.title('Result')
-                plt.legend(['Training Loss', 'Validation Loss'],
-                           loc='upper right')
-                plt.savefig(FLAGS.logs_dir + "merged_loss.jpg")
-            except Exception as err:
-                print(err)
-
-    try:
-        np.savetxt(
-            FLAGS.logs_dir +
-            "training_steps.csv",
-            np.c_[step, lo, valid],
-            fmt='%4f',
-            delimiter=',')
-    except Exception as err:
-        print(err)
-            
-    end = time.time()
-    print("Learning time:", end - start, "seconds")

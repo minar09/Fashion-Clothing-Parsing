@@ -14,14 +14,14 @@ import numpy as np
 import scipy.misc as misc
 import pydensecrf.densecrf as dcrf
 
-    
+
 def _read_annotation(filename):
 
     annotation = np.expand_dims(_transform(filename), axis=3)
-    
+
     return annotation
 
-        
+
 def _transform(filename):
     # 1. read image
     image = misc.imread(filename)
@@ -29,8 +29,8 @@ def _transform(filename):
     resize_image = misc.imresize(image, [224, 224], interp='nearest')
 
     return np.array(resize_image)
-    
-    
+
+
 def dense_crf(original_image, annotated_image, NUM_OF_CLASSESS, use_2d=True):
     # Converting annotated image to RGB if it is Gray scale
     print(original_image.shape, annotated_image.shape)
@@ -41,7 +41,8 @@ def dense_crf(original_image, annotated_image, NUM_OF_CLASSESS, use_2d=True):
 
     # Setting up the CRF model
 
-    d = dcrf.DenseCRF2D(original_image.shape[1], original_image.shape[0], n_labels)
+    d = dcrf.DenseCRF2D(
+        original_image.shape[1], original_image.shape[0], n_labels)
 
     # get unary potentials (neg log probability)
     processed_probabilities = annotated_image
@@ -55,7 +56,8 @@ def dense_crf(original_image, annotated_image, NUM_OF_CLASSESS, use_2d=True):
 
     # This potential penalizes small pieces of segmentation that are
     # spatially isolated -- enforces more spatially consistent segmentations
-    feats = create_pairwise_gaussian(sdims=(3, 3), shape=original_image.shape[:2])
+    feats = create_pairwise_gaussian(
+        sdims=(3, 3), shape=original_image.shape[:2])
 
     d.addPairwiseEnergy(feats, compat=3,
                         kernel=dcrf.DIAG_KERNEL,
@@ -64,7 +66,7 @@ def dense_crf(original_image, annotated_image, NUM_OF_CLASSESS, use_2d=True):
     # This creates the color-dependent features --
     # because the segmentation that we get from CNN are too coarse
     # and we can use local color features to refine them
-    feats = create_pairwise_bilateral(sdims=(3, 3), schan=(13, 13, 13),
+    feats = create_pairwise_bilateral(sdims=(80, 80), schan=(13, 13, 13),
                                       img=original_image, chdim=2)
 
     d.addPairwiseEnergy(feats, compat=10,
@@ -76,16 +78,17 @@ def dense_crf(original_image, annotated_image, NUM_OF_CLASSESS, use_2d=True):
     print(Q)
     #print(">>>>>>>>Qshape: ", Q.shape)
     # Find out the most probable class for each pixel.
-    output = np.argmax(Q, axis=0).reshape((original_image.shape[0], original_image.shape[1]))
+    output = np.argmax(Q, axis=0).reshape(
+        (original_image.shape[0], original_image.shape[1]))
     print(output.shape)
-    
+
     plt.subplot(240 + 1)
     plt.imshow(output, cmap=plt.get_cmap('nipy_spectral'))
     plt.show()
 
     return output
-    
-    
+
+
 def crf(original_image, annotated_image, NUM_OF_CLASSESS, use_2d=True):
 
     # Converting annotated image to RGB if it is Gray scale
@@ -163,19 +166,91 @@ def crf(original_image, annotated_image, NUM_OF_CLASSESS, use_2d=True):
     # Get output
     output = MAP.reshape(original_image.shape)
     output = rgb2gray(output)
-    
+
     print(output.shape)
-    
+
     plt.plot(output)
     #plt.imshow(crfoutput, cmap=plt.get_cmap('nipy_spectral'))
     plt.show()
-    
+
     return MAP.reshape(original_image.shape), output
 
-    
-#input = _transform("1200.jpg")
+
+"""
+Function which returns the labelled image after applying CRF
+
+"""
+
+# Original_image = Image which has to labelled
+# Annotated image = Which has been labelled by some technique( FCN in this case)
+# Output_image = The final output image after applying CRF
+# Use_2d = boolean variable
+# if use_2d = True specialised 2D fucntions will be applied
+# else Generic functions will be applied
+
+
+def image_crf(original_image, annotated_image, output_image, use_2d=True):
+
+    # Converting annotated image to RGB if it is Gray scale
+    if(len(annotated_image.shape) < 3):
+        annotated_image = gray2rgb(annotated_image)
+
+    imsave("testing2.png", annotated_image)
+
+    # Converting the annotations RGB color to single 32 bit integer
+    annotated_label = annotated_image[:, :, 0] + (
+        annotated_image[:, :, 1] << 8) + (annotated_image[:, :, 2] << 16)
+
+    # Convert the 32bit integer color to 0,1, 2, ... labels.
+    colors, labels = np.unique(annotated_label, return_inverse=True)
+
+    # Creating a mapping back to 32 bit colors
+    colorize = np.empty((len(colors), 3), np.uint8)
+    colorize[:, 0] = (colors & 0x0000FF)
+    colorize[:, 1] = (colors & 0x00FF00) >> 8
+    colorize[:, 2] = (colors & 0xFF0000) >> 16
+
+    # Gives no of class labels in the annotated image
+    n_labels = len(set(labels.flat))
+
+    print("No of labels in the Image are ")
+    print(n_labels)
+
+    # Setting up the CRF model
+    if use_2d:
+        d = dcrf.DenseCRF2D(
+            original_image.shape[1], original_image.shape[0], n_labels)
+
+        # get unary potentials (neg log probability)
+        U = unary_from_labels(labels, n_labels, gt_prob=0.7, zero_unsure=False)
+        d.setUnaryEnergy(U)
+
+        # This adds the color-independent term, features are the locations only.
+        d.addPairwiseGaussian(sxy=(3, 3), compat=3, kernel=dcrf.DIAG_KERNEL,
+                              normalization=dcrf.NORMALIZE_SYMMETRIC)
+
+        # This adds the color-dependent term, i.e. features are (x,y,r,g,b).
+        d.addPairwiseBilateral(sxy=(80, 80), srgb=(13, 13, 13), rgbim=original_image,
+                               compat=10,
+                               kernel=dcrf.DIAG_KERNEL,
+                               normalization=dcrf.NORMALIZE_SYMMETRIC)
+
+    # Run Inference for 5 steps
+    Q = d.inference(5)
+
+    # Find out the most probable class for each pixel.
+    MAP = np.argmax(Q, axis=0)
+
+    # Convert the MAP (labels) back to the corresponding colors and save the image.
+    # Note that there is no "unknown" here anymore, no matter what we had at first.
+    MAP = colorize[MAP, :]
+    imsave(output_image, MAP.reshape(original_image.shape))
+    return MAP.reshape(original_image.shape)
+
+
+#input = _transform("in.png")
 input = np.ones((224, 224, 23))
-#gt = _read_annotation("1200.png")
-gt = np.zeros((224, 224, 23))
-output = dense_crf(input, gt, 23)
-#output = crf(input, gt, 23)
+#anno = _read_annotation("anno.png")
+anno = np.zeros((224, 224, 23))
+output = dense_crf(input, anno, 23)
+#output = crf(input, anno, 23)
