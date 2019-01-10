@@ -13,6 +13,7 @@ import BatchDatsetReader as dataset
 import datetime
 import read_MITSceneParsingData as scene_parsing
 import read_CFPD_data as fashion_parsing
+import read_LIP_data as human_parsing
 import TensorflowUtils as utils
 from PIL import Image
 import numpy as np
@@ -27,11 +28,12 @@ FLAGS = tf.flags.FLAGS
 tf.flags.DEFINE_integer("batch_size", "2", "batch size for training")
 tf.flags.DEFINE_integer(
     "training_epochs",
-    "50",
+    "30",
     "number of epochs for training")
-tf.flags.DEFINE_string("logs_dir", "logs/FCN_CRF/", "path to logs directory")
+tf.flags.DEFINE_string("logs_dir", "logs/FCN_LIP/", "path to logs directory")
 #tf.flags.DEFINE_string("data_dir", "E:/Dataset/Dataset10k/", "path to dataset")
-tf.flags.DEFINE_string("data_dir", "E:/Dataset/CFPD/", "path to dataset")
+#tf.flags.DEFINE_string("data_dir", "E:/Dataset/CFPD/", "path to dataset")
+tf.flags.DEFINE_string("data_dir", "E:/Dataset/LIP/", "path to dataset")
 #tf.flags.DEFINE_string("data_dir", "E:/Dataset/MIT_SceneParsing/ADEChallengeData2016/images/", "path to dataset")
 tf.flags.DEFINE_float(
     "learning_rate",
@@ -47,11 +49,12 @@ MODEL_URL = 'http://www.vlfeat.org/matconvnet/models/beta16/imagenet-vgg-verydee
 
 MAX_ITERATION = int(1e5 + 1001)
 # NUM_OF_CLASSES = 18  # human parsing  59 #cloth   151  # MIT Scene
-NUM_OF_CLASSES = 23  # total parsing  23 #cloth main   13  # CFPD
+#NUM_OF_CLASSES = 23  # total parsing  23 #cloth main   13  # CFPD
+NUM_OF_CLASSES = 20  # total parsing  23 #cloth main   13  # CFPD  # LIP 20
 IMAGE_SIZE = 224
 DISPLAY_STEP = 300
-TEST_DIR = FLAGS.logs_dir + "Image/"
-VIS_DIR = FLAGS.logs_dir + "VIS_Image/"
+TEST_DIR = FLAGS.logs_dir + "TestImage/"
+VIS_DIR = FLAGS.logs_dir + "VisImage/"
 
 
 """
@@ -218,12 +221,12 @@ def main(argv=None):
 
     print("Setting up image reader from ", FLAGS.data_dir, "...")
     #train_records, valid_records = scene_parsing.read_dataset(FLAGS.data_dir)
-    train_records, valid_records, test_records = fashion_parsing.read_dataset(
-        FLAGS.data_dir)
+    #train_records, valid_records, test_records = fashion_parsing.read_dataset(FLAGS.data_dir)
+    train_records, valid_records = human_parsing.read_dataset(FLAGS.data_dir)
     print("data dir:", FLAGS.data_dir)
     print("train_records length :", len(train_records))
     print("valid_records length :", len(valid_records))
-    print("test_records length :", len(test_records))
+    #print("test_records length :", len(test_records))
 
     print("Setting up dataset reader")
     image_options = {'resize': True, 'resize_size': IMAGE_SIZE}
@@ -232,14 +235,16 @@ def main(argv=None):
             train_records, image_options)
         validation_dataset_reader = dataset.BatchDatset(
             valid_records, image_options)
-        test_dataset_reader = dataset.BatchDatset(
-            test_records, image_options)
+        #test_dataset_reader = dataset.BatchDatset(
+            #test_records, image_options)
     if FLAGS.mode == 'visualize':
         validation_dataset_reader = dataset.BatchDatset(
             valid_records, image_options)
     if FLAGS.mode == 'test':
-        test_dataset_reader = dataset.BatchDatset(
-            test_records, image_options)
+        validation_dataset_reader = dataset.BatchDatset(
+            valid_records, image_options)
+        #test_dataset_reader = dataset.BatchDatset(
+            #test_records, image_options)
 
     sess = tf.Session()
 
@@ -262,7 +267,7 @@ def main(argv=None):
         fd.mode_train(sess, FLAGS, net, train_dataset_reader, validation_dataset_reader, train_records, pred_annotation,
                       image, annotation, keep_probability, logits, train_op, loss, summary_op, summary_writer, saver, DISPLAY_STEP)
 
-        fd.mode_test(sess, FLAGS, TEST_DIR, test_dataset_reader, test_records,
+        fd.mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records,
                      pred_annotation, image, annotation, keep_probability, logits, NUM_OF_CLASSES)
 
     # test-random-validation-data mode
@@ -274,7 +279,7 @@ def main(argv=None):
     # test-full-validation-dataset mode
     elif FLAGS.mode == "test":  # heejune added
 
-        fd.mode_test(sess, FLAGS, TEST_DIR, test_dataset_reader, test_records,
+        fd.mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records,
                      pred_annotation, image, annotation, keep_probability, logits, NUM_OF_CLASSES)
 
     sess.close()
