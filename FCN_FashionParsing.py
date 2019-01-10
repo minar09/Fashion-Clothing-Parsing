@@ -27,7 +27,7 @@ FLAGS = tf.flags.FLAGS
 tf.flags.DEFINE_integer("batch_size", "2", "batch size for training")
 tf.flags.DEFINE_integer(
     "training_epochs",
-    "50",
+    "60",
     "number of epochs for training")
 tf.flags.DEFINE_string("logs_dir", "logs/FCN_FP/", "path to logs directory")
 #tf.flags.DEFINE_string("data_dir", "E:/Dataset/Dataset10k/", "path to dataset")
@@ -103,40 +103,65 @@ def inference(image, keep_prob):
             utils.add_activation_summary(relu7)
         relu_dropout7 = tf.nn.dropout(relu7, keep_prob=keep_prob)
 
-        """ Start outfit encoder """
+        """ Start outfit encoder 
 
         # FC1 @ 256
-        shape = int(np.prod(relu_dropout7.get_shape()[1:]))
-        fc1w = tf.Variable(tf.truncated_normal([shape, 256],
-                                               dtype=tf.float32,
-                                               stddev=1e-1), name='w1')
-        fc1b = tf.Variable(tf.constant(1.0, shape=[256], dtype=tf.float32),
-                           trainable=True, name='b1')
-        fc7_flat = tf.reshape(relu_dropout7, [-1, shape])
-        fcl1 = tf.nn.bias_add(tf.matmul(fc7_flat, fc1w), fc1b)
-        relu1 = tf.nn.relu(fcl1)
-        relu_dropout1 = tf.nn.dropout(relu1, keep_prob=keep_prob)
+        attr_W1 = utils.weight_variable([1, 1, 4096, 256], name="attr_W1")
+        attr_b1 = utils.bias_variable([256], name="attr_b1")
+        attr_conv1 = utils.conv2d_basic(relu_dropout7, attr_W1, attr_b1)
+        attr_relu1 = tf.nn.relu(attr_conv1, name="attr_relu1")
+        attr_relu_dropout1 = tf.nn.dropout(attr_relu1, keep_prob=keep_prob)
 
         # FC2 @ NUM_OF_CLASSES
-        fc2w = tf.Variable(tf.truncated_normal([256, NUM_OF_CLASSES],
-                                               dtype=tf.float32,
-                                               stddev=1e-1), name='w2')
-        fc2b = tf.Variable(tf.constant(1.0, shape=[NUM_OF_CLASSES], dtype=tf.float32),
-                           trainable=True, name='b2')
-        fcl2 = tf.nn.bias_add(tf.matmul(relu1, fc2w), fc2b)
-        # print(fcl2.shape)
+        attr_W2 = utils.weight_variable([1, 1, 256, NUM_OF_CLASSES], name="attr_W2")
+        attr_b2 = utils.bias_variable([NUM_OF_CLASSES], name="attr_b2")
+        attr_conv2 = utils.conv2d_basic(attr_relu_dropout1, attr_W2, attr_b2)
+        print(attr_conv2)
 
         # Sigmoid
-        sig_fc2 = tf.nn.sigmoid(fcl2)
-        # print(sig_fc2.shape)
+        sig_fc2 = tf.nn.sigmoid(attr_conv2)
 
-        """ End outfit encoder """
+         End outfit encoder """
 
         # FC8 to Conv
         W8 = utils.weight_variable([1, 1, 4096, NUM_OF_CLASSES], name="W8")
         b8 = utils.bias_variable([NUM_OF_CLASSES], name="b8")
         conv8 = utils.conv2d_basic(relu_dropout7, W8, b8)
-        # annotation_pred1 = tf.argmax(conv8, dimension=3, name="prediction1")
+        # print(conv8.shape) # (?, 7, 7, 23)
+
+        """ outfit encoder """
+        fc1_flat = tf.contrib.layers.flatten(conv8)  # 1127
+        # print(fc1_flat.shape) # 1127
+
+        # FC2 @ NUM_OF_CLASSES
+        fc2w = tf.Variable(tf.truncated_normal([1127, NUM_OF_CLASSES],
+                                               dtype=tf.float32,
+                                               stddev=1e-1), name='w2')
+        fc2b = tf.Variable(tf.constant(1.0, shape=[NUM_OF_CLASSES], dtype=tf.float32),
+                           trainable=True, name='b2')
+        fcl2 = tf.nn.bias_add(tf.matmul(fc1_flat, fc2w), fc2b)
+        # print(fcl2.shape)
+
+        # Sigmoid
+        sig_fc2 = tf.nn.sigmoid(fcl2)
+
+        # FC2 @ NUM_OF_CLASSES
+        fc3w = tf.Variable(tf.truncated_normal([NUM_OF_CLASSES, 1127],
+                                               dtype=tf.float32,
+                                               stddev=1e-1), name='w3')
+        fc3b = tf.Variable(tf.constant(1.0, shape=[1127], dtype=tf.float32),
+                           trainable=True, name='b3')
+        fcl3 = tf.nn.bias_add(tf.matmul(sig_fc2, fc3w), fc3b)
+        # print(fcl3.shape)
+
+        fcl3_conv = tf.reshape(fcl3, tf.shape(conv8))
+        # print(fcl3_conv.shape)
+
+        # product
+        conv8 = tf.add(fcl3_conv, conv8, name="product")
+        # print(conv8.shape)
+
+        """ outfit encoder """
 
         """ now to upscale to actual image size """
 
@@ -149,6 +174,7 @@ def inference(image, keep_prob):
             conv8, W_t1, b_t1, output_shape=tf.shape(
                 image_net["pool4"]))
         fuse_1 = tf.add(conv_t1, image_net["pool4"], name="fuse_1")
+        # print(fuse_1.shape) # (?, 14, 14, 512)
 
         # Upscale2 + Skip/Fusion2
         deconv_shape2 = image_net["pool3"].get_shape()
@@ -160,17 +186,25 @@ def inference(image, keep_prob):
                 image_net["pool3"]))
         fuse_2 = tf.add(conv_t2, image_net["pool3"], name="fuse_2")
 
-        """ Start Product with outfit encoder """
+        """ Start Product with outfit encoder 
 
         # Deconv1
-        deconv_shape1 = image_net["pool4"].get_shape()
-        de_sig_fc2 = tf.reshape(sig_fc2, tf.shape(conv8))
-        W_de1 = utils.weight_variable(
-            [4, 4, deconv_shape1[3].value, NUM_OF_CLASSES], name="W_de1")
-        b_de1 = utils.bias_variable([deconv_shape1[3].value], name="b_de1")
-        deconv_sig1 = utils.conv2d_transpose_strided(
-            de_sig_fc2, W_de1, b_de1, output_shape=tf.shape(
-                image_net["pool4"]))
+        fc3w = tf.Variable(tf.truncated_normal([NUM_OF_CLASSES, 256],
+                                               dtype=tf.float32,
+                                               stddev=1e-1), name='w3')
+        fc3b = tf.Variable(tf.constant(1.0, shape=[256], dtype=tf.float32),
+                           trainable=True, name='b3')
+        fcl3 = tf.nn.bias_add(tf.matmul(sig_fc2, fc3w), fc3b)
+        relu3 = tf.nn.relu(fcl3)
+        
+        #
+        fc4w = tf.Variable(tf.truncated_normal([256, 4096],
+                                               dtype=tf.float32,
+                                               stddev=1e-1), name='w4')
+        fc4b = tf.Variable(tf.constant(1.0, shape=[4096], dtype=tf.float32),
+                           trainable=True, name='b4')
+        fcl4 = tf.nn.bias_add(tf.matmul(relu3, fc4w), fc4b)
+        relu4 = tf.nn.relu(fcl4)
 
         # Deconv2
         deconv_shape2 = image_net["pool3"].get_shape()
@@ -178,14 +212,14 @@ def inference(image, keep_prob):
             [4, 4, deconv_shape2[3].value, deconv_shape1[3].value], name="W_de2")
         b_de2 = utils.bias_variable([deconv_shape2[3].value], name="b_de2")
         deconv_sig2 = utils.conv2d_transpose_strided(
-            deconv_sig1, W_de2, b_de2, output_shape=tf.shape(
+            relu4, W_de2, b_de2, output_shape=tf.shape(
                 image_net["pool3"]))
 
         # Product (Gi = gi · Fi)
         #print(deconv_sig2.shape, fuse_2.shape)
-        product_deconv = tf.add(deconv_sig2, fuse_2)
+        product_deconv = tf.add(deconv_sig2, fuse_2, name="product")
 
-        """ End Product with outfit encoder """
+         End Product with outfit encoder """
 
         # Upscale3 to output
         shape = tf.shape(image)
@@ -194,9 +228,10 @@ def inference(image, keep_prob):
         W_t3 = utils.weight_variable(
             [16, 16, NUM_OF_CLASSES, deconv_shape2[3].value], name="W_t3")
         b_t3 = utils.bias_variable([NUM_OF_CLASSES], name="b_t3")
-        #conv_t3 = utils.conv2d_transpose_strided(fuse_2, W_t3, b_t3, output_shape=deconv_shape3, stride=8)
         conv_t3 = utils.conv2d_transpose_strided(
-            product_deconv, W_t3, b_t3, output_shape=deconv_shape3, stride=8)
+            fuse_2, W_t3, b_t3, output_shape=deconv_shape3, stride=8)
+        # conv_t3 = utils.conv2d_transpose_strided(
+        # product_deconv, W_t3, b_t3, output_shape=deconv_shape3, stride=8)
 
         # prob = tf.nn.softmax(conv_t3, axis =3)
         annotation_pred = tf.argmax(conv_t3, dimension=3, name="prediction")
@@ -343,11 +378,14 @@ def main(argv=None):
     # 6. train-mode
     if FLAGS.mode == "train":
 
-        fd.mode_train(sess, FLAGS, net, train_dataset_reader, validation_dataset_reader, train_records, pred_annotation,
-                      image, annotation, keep_probability, logits_decoder, train_op, loss, summary_op, summary_writer, saver, DISPLAY_STEP, encoder_training=True, loss_encoder=encoder_loss, train_encoder_op=train_encoder_op, label=label, train_encoder_dataset_reader=train_encoder_dataset_reader, validation_encoder_dataset_reader=validation_encoder_dataset_reader)
+        fd.mode_train_encoder(sess, FLAGS, net, train_records, pred_annotation, image, keep_probability, saver, encoder_loss,
+                              train_encoder_op, label, train_encoder_dataset_reader, validation_encoder_dataset_reader, DISPLAY_STEP)
 
-        fd.mode_test(sess, FLAGS, TEST_DIR, test_dataset_reader, test_records,
-                     pred_annotation, image, annotation, keep_probability, logits_decoder, NUM_OF_CLASSES)
+        fd.mode_train(sess, FLAGS, net, train_dataset_reader, validation_dataset_reader, train_records, pred_annotation, image,
+                      annotation, keep_probability, logits_decoder, train_op, loss, summary_op, summary_writer, saver, DISPLAY_STEP)
+
+        fd.mode_test(sess, FLAGS, TEST_DIR, test_dataset_reader, test_records, pred_annotation,
+                     image, annotation, keep_probability, logits_decoder, NUM_OF_CLASSES)
 
     # test-random-validation-data mode
     elif FLAGS.mode == "visualize":
