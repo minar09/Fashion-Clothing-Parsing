@@ -76,15 +76,30 @@ def vgg_net(weights, image):
 def mode_visualize(sess, FLAGS, TEST_DIR, validation_dataset_reader, pred_annotation, image, annotation, keep_probability, NUM_OF_CLASSES):
     if not os.path.exists(TEST_DIR):
         os.makedirs(TEST_DIR)
-
+    
     valid_images, valid_annotations = validation_dataset_reader.get_random_batch(
         FLAGS.batch_size)
-    pred = sess.run(
-        pred_annotation,
-        feed_dict={
-            image: valid_images,
-            annotation: valid_annotations,
-            keep_probability: 1.0})
+    pred = sess.run(pred_annotation,
+                                 feed_dict={image: valid_images, annotation: valid_annotations,
+                                            keep_probability: 1.0})
+       
+    # sess.run(tf.global_variables_initializer())
+    # sess.run(tf.local_variables_initializer())
+        
+    # mean_iou_op = tf.metrics.mean_iou(labels=annotation, predictions=pred_annotation, num_classes=NUM_OF_CLASSES)
+    # pixel_acc_op = tf.metrics.accuracy(labels=annotation, predictions=pred_annotation)
+    # mean_acc_op = tf.metrics.mean_iou(labels=annotation, predictions=pred_annotation, num_classes=NUM_OF_CLASSES)
+    
+    # sess.run(tf.local_variables_initializer())
+    
+    # feed_dict={image: valid_images, annotation: valid_annotations, keep_probability: 1.0}
+    # pred, pixel_acc, mean_acc, tf_miou = sess.run(
+        # [pred_annotation, pixel_acc_op, mean_acc_op, mean_iou_op],
+        # feed_dict=feed_dict)
+    # sess.run(tf.local_variables_initializer())
+    
+    # print(pixel_acc[0], mean_acc[0], tf_miou[0])
+    
     valid_annotations = np.squeeze(valid_annotations, axis=3)
     pred = np.squeeze(pred, axis=3)
 
@@ -100,11 +115,11 @@ def mode_visualize(sess, FLAGS, TEST_DIR, validation_dataset_reader, pred_annota
 
     for itr in range(FLAGS.batch_size):
         utils.save_image(valid_images[itr].astype(
-            np.uint8), TEST_DIR, name="inp_" + str(5 + itr))
+            np.uint8), TEST_DIR, name="inp_" + str(itr))
         utils.save_image(valid_annotations[itr].astype(
-            np.uint8) * 255 / NUM_OF_CLASSES, TEST_DIR, name="gt_" + str(5 + itr))
+            np.uint8) * 255 / NUM_OF_CLASSES, TEST_DIR, name="gt_" + str(itr))
         utils.save_image(pred[itr].astype(
-            np.uint8) * 255 / NUM_OF_CLASSES, TEST_DIR, name="pred_" + str(5 + itr))
+            np.uint8) * 255 / NUM_OF_CLASSES, TEST_DIR, name="pred_" + str(itr))
         print("Saved image: %d" % itr)
 
         # Eval metrics for this image prediction
@@ -124,9 +139,13 @@ def mode_visualize(sess, FLAGS, TEST_DIR, validation_dataset_reader, pred_annota
               'Frequency-weighted IoU {fwiou.val:.4f} ({fwiou.avg:.4f})'.format(
                   pixel=pixel, mean=mean, miou=miou, fwiou=fwiou))
 
+        """ Generate CRF """
+        crfimage, crfoutput = inference.crf(TEST_DIR + "inp_" + str(itr) + ".png", TEST_DIR + "pred_" + str(
+            itr) + ".png", TEST_DIR + "crf_" + str(itr) + ".png", NUM_OF_CLASSES, use_2d=True)
+              
         # Eval metrics for this image prediction with crf
         crf_pa, crf_ma, crf_miu, crf_fwiu = EM._calc_eval_metrics(
-            valid_annotations[itr2].astype(
+            valid_annotations[itr].astype(
                 np.uint8), crfoutput.astype(
                 np.uint8), NUM_OF_CLASSES)
 
@@ -140,7 +159,7 @@ def mode_visualize(sess, FLAGS, TEST_DIR, validation_dataset_reader, pred_annota
               'Mean IoU (CRF): {miou.val:.4f} ({miou.avg:.4f}),\t'
               'Frequency-weighted IoU (CRF): {fwiou.val:.4f} ({fwiou.avg:.4f})'.format(len(valid_records),
                                                                                        pixel=crf_pixel, mean=crf_mean, miou=crf_miou, fwiou=crf_fwiou))
-
+        
     print(' * Pixel acc: {pixel.avg:.4f}, Mean acc: {mean.avg:.4f}, Mean IoU: {miou.avg:.4f}, Frequency-weighted IoU: {fwiou.avg:.4f}'
           .format(pixel=pixel, mean=mean, miou=miou, fwiou=fwiou))
     print(' * Pixel acc (CRF): {pixel.avg:.4f}, Mean acc (CRF): {mean.avg:.4f}, Mean IoU (CRF): {miou.avg:.4f}, Frequency-weighted IoU (CRF): {fwiou.avg:.4f}'
@@ -347,9 +366,27 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
 
         valid_images, valid_annotations = validation_dataset_reader.next_batch(
             FLAGS.batch_size)
-        pred, logits1 = sess.run([pred_annotation, logits],
-                                 feed_dict={image: valid_images, annotation: valid_annotations,
-                                            keep_probability: 1.0})
+        # pred, logits1 = sess.run([pred_annotation, logits],
+                                 # feed_dict={image: valid_images, annotation: valid_annotations,
+                                            # keep_probability: 1.0})
+                                            
+        sess.run(tf.global_variables_initializer())
+        sess.run(tf.local_variables_initializer())
+            
+        mean_iou_op, _ = tf.metrics.mean_iou(labels=annotation, predictions=pred_annotation, num_classes=NUM_OF_CLASSES)
+        pixel_acc_op, _ = tf.metrics.accuracy(labels=annotation, predictions=pred_annotation)
+        mean_acc_op, _ = tf.metrics.mean_iou(labels=annotation, predictions=pred_annotation, num_classes=NUM_OF_CLASSES)
+        
+        sess.run(tf.local_variables_initializer())
+        
+        feed_dict={image: valid_images, annotation: valid_annotations, keep_probability: 1.0}
+        pred, logits1, pixel_acc, mean_acc, tf_miou = sess.run(
+            [pred_annotation, logits, pixel_acc_op, mean_acc_op, mean_iou_op],
+            feed_dict=feed_dict)
+        sess.run(tf.local_variables_initializer())
+        
+        print(pixel_acc, mean_acc, tf_miou)
+                                            
         valid_annotations = np.squeeze(valid_annotations, axis=3)
         pred = np.squeeze(pred)
         print("logits shape:", logits1.shape)
@@ -424,8 +461,21 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
                            itr2) +
                        ".csv", crossMat, fmt='%4i', delimiter=',')
 
+            # Save input, gt, pred, crf_pred, sum figures for this image
+            plt.savefig(TEST_DIR + "resultSum_" +
+                        str(itr1 * FLAGS.batch_size + itr2))
+            # ---------------------------------------------
+            utils.save_image(valid_images[itr2].astype(np.uint8), TEST_DIR,
+                             name="inp_" + str(itr1 * FLAGS.batch_size + itr2))
+            utils.save_image(valid_annotations[itr2].astype(np.uint8), TEST_DIR,
+                             name="gt_" + str(itr1 * FLAGS.batch_size + itr2))
+            utils.save_image(pred[itr2].astype(np.uint8),
+                             TEST_DIR,
+                             name="pred_" + str(itr1 * FLAGS.batch_size + itr2))
+                             
+            # --------------------------------------------------
             """ Generate CRF """
-            crfoutput = inference.crf(TEST_DIR + "inp_" + str(itr1 * FLAGS.batch_size + itr2) + ".png", TEST_DIR + "pred_" + str(
+            crfimage, crfoutput = inference.crf(TEST_DIR + "inp_" + str(itr1 * FLAGS.batch_size + itr2) + ".png", TEST_DIR + "pred_" + str(
                 itr1 * FLAGS.batch_size + itr2) + ".png", TEST_DIR + "crf_" + str(itr1 * FLAGS.batch_size + itr2) + ".png", NUM_OF_CLASSES, use_2d=True)
 
             # crfoutput = inference.crf(valid_images[itr2].astype(
@@ -479,23 +529,12 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
             plt.axis('off')
             plt.title('Prediction + CRF')
             
-            valid_annotations[itr2] = cv2.normalize(
-                valid_annotations[itr2], None, 0, 255, cv2.NORM_MINMAX)
-            crfoutput = cv2.normalize(
-                crfoutput, None, 0, 255, cv2.NORM_MINMAX)
-            
-            # Save input, gt, pred, crf_pred, sum figures for this image
-            plt.savefig(TEST_DIR + "resultSum_" +
-                        str(itr1 * FLAGS.batch_size + itr2))
-            # ---------------------------------------------
-            utils.save_image(valid_images[itr2].astype(np.uint8), TEST_DIR,
-                             name="inp_" + str(itr1 * FLAGS.batch_size + itr2))
-            utils.save_image(valid_annotations[itr2].astype(np.uint8), TEST_DIR,
-                             name="gt_" + str(itr1 * FLAGS.batch_size + itr2))
-            utils.save_image(pred[itr2].astype(np.uint8),
-                             TEST_DIR,
-                             name="pred_" + str(itr1 * FLAGS.batch_size + itr2))
-            utils.save_image(crfoutput, TEST_DIR, name="crf_" + str(itr1 * FLAGS.batch_size + itr2))
+            # valid_annotations[itr2] = cv2.normalize(
+                # valid_annotations[itr2], None, 0, 255, cv2.NORM_MINMAX)
+            # crfoutput = cv2.normalize(
+                # crfoutput, None, 0, 255, cv2.NORM_MINMAX)
+                             
+            # utils.save_image(crfoutput, TEST_DIR, name="crf_" + str(itr1 * FLAGS.batch_size + itr2))
                                                                 
             """ CRF end """
 

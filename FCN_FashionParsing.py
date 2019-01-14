@@ -9,7 +9,8 @@ from pydensecrf.utils import unary_from_labels, create_pairwise_bilateral, creat
 from skimage.io import imread, imsave
 import pydensecrf.densecrf as dcrf
 from six.moves import xrange
-import BatchDatsetReader as dataset
+#import BatchDatsetReader as dataset
+import FashionBatchDatsetReader as dataset
 import datetime
 import read_MITSceneParsingData as scene_parsing
 import read_CFPD_data as fashion_parsing

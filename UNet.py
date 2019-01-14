@@ -27,9 +27,9 @@ FLAGS = tf.flags.FLAGS
 tf.flags.DEFINE_integer("batch_size", "2", "batch size for training")
 tf.flags.DEFINE_integer(
     "training_epochs",
-    "50",
+    "30",
     "number of epochs for training")
-tf.flags.DEFINE_string("logs_dir", "logs/UNet_CRF/", "path to logs directory")
+tf.flags.DEFINE_string("logs_dir", "logs/UNet_CFPD/", "path to logs directory")
 #tf.flags.DEFINE_string("data_dir", "E:/Dataset/Dataset10k/", "path to dataset")
 tf.flags.DEFINE_string("data_dir", "E:/Dataset/CFPD/", "path to dataset")
 
@@ -48,8 +48,8 @@ MAX_ITERATION = int(1e5 + 1001)
 NUM_OF_CLASSES = 23  # total parsing  23 #cloth main   13  # CFPD
 IMAGE_SIZE = 224
 DISPLAY_STEP = 300
-TEST_DIR = FLAGS.logs_dir + "Image/"
-VIS_DIR = FLAGS.logs_dir + "VIS_Image/"
+TEST_DIR = FLAGS.logs_dir + "TestImage/"
+VIS_DIR = FLAGS.logs_dir + "VisImage/"
 
 
 """
