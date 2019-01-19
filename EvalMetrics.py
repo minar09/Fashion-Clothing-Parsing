@@ -4,16 +4,80 @@ import numpy as np
 import tensorflow as tf
 import time
 
-# Hide the warning messages about CPU/GPU
+# Hide the warning messages about CPU/GPU, invalid error
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+np.seterr(divide='ignore', invalid='ignore')
+
+
+def fast_hist(a, b, n):
+    k = (a >= 0) & (a < n)
+    return np.bincount(n * a[k].astype(int) + b[k], minlength=n**2).reshape(n, n)
+
+
+def compute_hist(images, labels, n_cl=18):
+    hist = np.zeros((n_cl, n_cl))
+
+    for img_path, label_path in tqdm(zip(images, labels)):
+        label = Image.open(label_path)
+        label_array = np.array(label, dtype=np.int32)
+        image = Image.open(img_path)
+        image_array = np.array(image, dtype=np.int32)
+
+        gtsz = label_array.shape
+        imgsz = image_array.shape
+
+        if not gtsz == imgsz:
+            image = image.resize((gtsz[1], gtsz[0]), Image.ANTIALIAS)
+            image_array = np.array(image, dtype=np.int32)
+
+        hist += fast_hist(label_array, image_array, n_cl)
+
+    return hist
+
+
+def show_result(hist, n_cl=18):
+
+    #classes = ['background', 'hat', 'hair', 'sunglasses', 'upperclothes', 'skirt', 'pants', 'dress',
+               #'belt', 'leftShoe', 'rightShoe', 'face', 'leftLeg', 'rightLeg', 'leftArm', 'rightArm', 'bag', 'scarf']
+    # num of correct pixels
+    num_cor_pix = np.diag(hist)
+    # num of gt pixels
+    num_gt_pix = hist.sum(1)
+    print('=' * 50)
+
+    # @evaluation 1: overall accuracy
+    acc = num_cor_pix.sum() / hist.sum()
+    print('>>>', 'overall accuracy', acc)
+    print('-' * 50)
+
+    # @evaluation 2: mean accuracy & per-class accuracy
+    print('Accuracy for each class (pixel accuracy):')
+    for i in xrange(n_cl):
+        print('%-15s: %f' % (classes[i], num_cor_pix[i] / num_gt_pix[i]))
+    acc = num_cor_pix / num_gt_pix
+    print('>>>', 'mean accuracy', np.nanmean(acc))
+    print('-' * 50)
+
+    # @evaluation 3: mean IU & per-class IU
+    union = num_gt_pix + hist.sum(0) - num_cor_pix
+    for i in xrange(n_cl):
+        print('%-15s: %f' % (classes[i], num_cor_pix[i] / union[i]))
+    iu = num_cor_pix / (num_gt_pix + hist.sum(0) - num_cor_pix)
+    print('>>>', 'mean IoU', np.nanmean(iu))
+    print('-' * 50)
+
+    # @evaluation 4: frequency weighted IU
+    freq = num_gt_pix / hist.sum()
+    print('>>>', 'Freq Weighted IoU', (freq[freq > 0] * iu[freq > 0]).sum())
+    print('=' * 50)
 
 
 """
     calculate evaluation metrics
 """
 
-
+    
 def _calc_eval_metrics(gtimage, predimage, num_classes):
 
     pixel_accuracy_ = 0
@@ -38,15 +102,6 @@ def _calc_eval_metrics(gtimage, predimage, num_classes):
         gt_pixels = []
 
         check_size(predimage, gtimage)
-
-        # Check classes
-        # gt_labels, gt_labels_count = extract_classes(gtimage)
-        # print(gt_labels)
-        # pred_labels, pred_labels_count = extract_classes(predimage)
-        # print(pred_labels)
-        # assert num_classes == gt_labels_count
-        # print(num_classes, gt_labels_count, pred_labels_count)
-        # assert gt_labels_count == pred_labels_count
 
         for label in range(num_classes):  # 0--> 17
             intersection = 0
@@ -87,26 +142,9 @@ def _calc_eval_metrics(gtimage, predimage, num_classes):
             class_intersections.append(intersection)
             gt_pixels.append(gt_class)
 
-        # Check pixels
-        # assert pixel_sum == get_pixel_area(gtimage)
-        # assert pixel_sum == np.sum(gt_pixels)
-        # print(pixel_sum, get_pixel_area(gtimage), np.sum(gt_pixels))
-
         # Calculate mean accuracy and meanIoU
         mean_accuracy = np.mean(per_class_pixel_accuracy)
         meanIoU = np.mean(IoUs)
-
-        # hist = _calcCrossMat(gtimage, predimage, num_classes)
-        # num_cor_pix = np.diag(hist)
-        # # num of correct pixels
-        # num_cor_pix = np.diag(hist)
-        # # num of gt pixels
-        # num_gt_pix = np.sum(hist, axis=1)
-        # # num of pred pixels
-        # num_pred_pix = np.sum(hist, axis=0)
-        # # IU
-        # denominator = (num_gt_pix + num_pred_pix - num_cor_pix)
-        # print(np.sum(class_intersections), np.sum(num_cor_pix))
 
         # Calculate pixel accuracy and mean FWIoU
         if (pixel_sum == 0):
@@ -118,6 +156,54 @@ def _calc_eval_metrics(gtimage, predimage, num_classes):
 
     except Exception as err:
         print(err)
+
+    return pixel_accuracy_, mean_accuracy, meanIoU, meanFrqWIoU
+    
+    
+"""
+    calculate eval metrics from confusion matrix
+"""
+
+
+def _calc_eval_metrics_from_cross_matrix(gtimage, predimage, num_classes):
+    cross_mat = _calcCrossMat(gtimage, predimage, num_classes)
+    #cross_mat = fast_hist(gtimage, predimage, num_classes)
+    
+    class_intersections = np.diag(cross_mat)
+    total_intersections = np.nansum(class_intersections)
+    
+    gt_pixels = np.sum(cross_mat, axis=1)
+    pred_pixels = np.sum(cross_mat, axis=0)
+    total_pixels = np.sum(cross_mat)
+    
+    # mean accuracy, mean IoU, frequency-weighted IoU
+    class_accuracies = []
+    IoUs = []
+    FWIoUs = []
+    
+    for i in range(len(class_intersections)):
+        try:
+            acc = (float)(class_intersections[i] / gt_pixels[i])
+            class_accuracies.append(acc)
+        except:
+            class_accuracies.append(0)
+        
+        try:
+            iu = (float)(class_intersections[i] / (gt_pixels[i] + pred_pixels[i] - class_intersections[i]))
+            IoUs.append(iu)
+        except:
+            IoUs.append(0)
+        
+        try:
+            fwiu = (float)((class_intersections[i] * gt_pixels[i]) / (gt_pixels[i] + pred_pixels[i] - class_intersections[i]))
+            FWIoUs.append(fwiu)
+        except:
+            FWIoUs.append(0)
+        
+    pixel_accuracy_ = (float)(total_intersections / total_pixels)    # pixel accuracy
+    mean_accuracy = (float)(np.nansum(class_accuracies) / num_classes)    # mean accuracy
+    meanIoU = (float)(np.nansum(IoUs) / num_classes)    # mean IoU
+    meanFrqWIoU = (float)(np.nansum(FWIoUs) / total_pixels)    # Total frequency-weighted IoU
 
     return pixel_accuracy_, mean_accuracy, meanIoU, meanFrqWIoU
 

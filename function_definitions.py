@@ -83,22 +83,17 @@ def mode_visualize(sess, FLAGS, TEST_DIR, validation_dataset_reader, pred_annota
                                  feed_dict={image: valid_images, annotation: valid_annotations,
                                             keep_probability: 1.0})
        
-    # sess.run(tf.global_variables_initializer())
-    # sess.run(tf.local_variables_initializer())
-        
-    # mean_iou_op = tf.metrics.mean_iou(labels=annotation, predictions=pred_annotation, num_classes=NUM_OF_CLASSES)
-    # pixel_acc_op = tf.metrics.accuracy(labels=annotation, predictions=pred_annotation)
-    # mean_acc_op = tf.metrics.mean_iou(labels=annotation, predictions=pred_annotation, num_classes=NUM_OF_CLASSES)
+    pixel_acc_op, pixel_acc_update_op = tf.metrics.accuracy(labels=annotation, predictions=pred_annotation)
+    mean_iou_op, mean_iou_update_op = tf.metrics.mean_iou(labels=annotation, predictions=pred_annotation, num_classes=NUM_OF_CLASSES)
     
-    # sess.run(tf.local_variables_initializer())
-    
-    # feed_dict={image: valid_images, annotation: valid_annotations, keep_probability: 1.0}
-    # pred, pixel_acc, mean_acc, tf_miou = sess.run(
-        # [pred_annotation, pixel_acc_op, mean_acc_op, mean_iou_op],
-        # feed_dict=feed_dict)
-    # sess.run(tf.local_variables_initializer())
-    
-    # print(pixel_acc[0], mean_acc[0], tf_miou[0])
+    sess.run(tf.local_variables_initializer())
+    feed_dict={image: valid_images, annotation: valid_annotations, keep_probability: 1.0}
+    sess.run(
+        [pixel_acc_update_op, mean_iou_update_op],
+        feed_dict=feed_dict)
+    pixel_acc, tf_miou = sess.run(
+        [pixel_acc_op, mean_iou_op],
+        feed_dict=feed_dict)
     
     valid_annotations = np.squeeze(valid_annotations, axis=3)
     pred = np.squeeze(pred, axis=3)
@@ -123,7 +118,12 @@ def mode_visualize(sess, FLAGS, TEST_DIR, validation_dataset_reader, pred_annota
         print("Saved image: %d" % itr)
 
         # Eval metrics for this image prediction
-        pa, ma, miu, fwiu = EM._calc_eval_metrics(
+        print(EM._calc_eval_metrics(
+            valid_annotations[itr].astype(
+                np.uint8), pred[itr].astype(
+                np.uint8), NUM_OF_CLASSES))
+                
+        pa, ma, miu, fwiu = EM._calc_eval_metrics_from_cross_matrix(
             valid_annotations[itr].astype(
                 np.uint8), pred[itr].astype(
                 np.uint8), NUM_OF_CLASSES)
@@ -157,11 +157,11 @@ def mode_visualize(sess, FLAGS, TEST_DIR, validation_dataset_reader, pred_annota
         print('Pixel acc (CRF): {pixel.val:.4f} ({pixel.avg:.4f}),\t'
               'Mean acc (CRF): {mean.val:.4f} ({mean.avg:.4f}),\t'
               'Mean IoU (CRF): {miou.val:.4f} ({miou.avg:.4f}),\t'
-              'Frequency-weighted IoU (CRF): {fwiou.val:.4f} ({fwiou.avg:.4f})'.format(len(valid_records),
-                                                                                       pixel=crf_pixel, mean=crf_mean, miou=crf_miou, fwiou=crf_fwiou))
+              'Frequency-weighted IoU (CRF): {fwiou.val:.4f} ({fwiou.avg:.4f})'.format(pixel=crf_pixel, mean=crf_mean, miou=crf_miou, fwiou=crf_fwiou))
         
     print(' * Pixel acc: {pixel.avg:.4f}, Mean acc: {mean.avg:.4f}, Mean IoU: {miou.avg:.4f}, Frequency-weighted IoU: {fwiou.avg:.4f}'
           .format(pixel=pixel, mean=mean, miou=miou, fwiou=fwiou))
+    print(" * Pixel acc (tf):", pixel_acc, ", Mean IoU (tf):", tf_miou)
     print(' * Pixel acc (CRF): {pixel.avg:.4f}, Mean acc (CRF): {mean.avg:.4f}, Mean IoU (CRF): {miou.avg:.4f}, Frequency-weighted IoU (CRF): {fwiou.avg:.4f}'
           .format(pixel=crf_pixel, mean=crf_mean, miou=crf_miou, fwiou=crf_fwiou))
 
@@ -350,6 +350,9 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
     mean = EM.AverageMeter()
     miou = EM.AverageMeter()
     fwiou = EM.AverageMeter()
+    
+    tf_pixel = EM.AverageMeter()
+    tf_miou = EM.AverageMeter()
 
     crf_crossMats = list()
     crf_mIOU_all = list()
@@ -366,26 +369,25 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
 
         valid_images, valid_annotations = validation_dataset_reader.next_batch(
             FLAGS.batch_size)
-        # pred, logits1 = sess.run([pred_annotation, logits],
-                                 # feed_dict={image: valid_images, annotation: valid_annotations,
-                                            # keep_probability: 1.0})
-                                            
-        sess.run(tf.global_variables_initializer())
-        sess.run(tf.local_variables_initializer())
+        pred, logits1 = sess.run([pred_annotation, logits],
+                                 feed_dict={image: valid_images, annotation: valid_annotations,
+                                            keep_probability: 1.0})
             
-        mean_iou_op, _ = tf.metrics.mean_iou(labels=annotation, predictions=pred_annotation, num_classes=NUM_OF_CLASSES)
-        pixel_acc_op, _ = tf.metrics.accuracy(labels=annotation, predictions=pred_annotation)
-        mean_acc_op, _ = tf.metrics.mean_iou(labels=annotation, predictions=pred_annotation, num_classes=NUM_OF_CLASSES)
+        pixel_acc_op, pixel_acc_update_op = tf.metrics.accuracy(labels=annotation, predictions=pred_annotation)
+        mean_iou_op, mean_iou_update_op = tf.metrics.mean_iou(labels=annotation, predictions=pred_annotation, num_classes=NUM_OF_CLASSES)
         
         sess.run(tf.local_variables_initializer())
-        
         feed_dict={image: valid_images, annotation: valid_annotations, keep_probability: 1.0}
-        pred, logits1, pixel_acc, mean_acc, tf_miou = sess.run(
-            [pred_annotation, logits, pixel_acc_op, mean_acc_op, mean_iou_op],
+        sess.run(
+            [pixel_acc_update_op, mean_iou_update_op],
             feed_dict=feed_dict)
-        sess.run(tf.local_variables_initializer())
+        _pixel_acc, _mean_iou = sess.run(
+            [pixel_acc_op, mean_iou_op],
+            feed_dict=feed_dict)
         
-        print(pixel_acc, mean_acc, tf_miou)
+        print("Pixel acc (tf):", _pixel_acc, ", Mean IoU (tf):", _mean_iou)    
+        tf_pixel.update(_pixel_acc)
+        tf_miou.update(_mean_iou)
                                             
         valid_annotations = np.squeeze(valid_annotations, axis=3)
         pred = np.squeeze(pred)
@@ -543,6 +545,8 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
 
     print(' * Pixel acc: {pixel.avg:.4f}, Mean acc: {mean.avg:.4f}, Mean IoU: {miou.avg:.4f}, Frequency-weighted IoU: {fwiou.avg:.4f}'
           .format(pixel=pixel, mean=mean, miou=miou, fwiou=fwiou))
+    print(' * Pixel acc (tf): {pixel.avg:.4f}, Mean IoU (tf): {miou.avg:.4f}'
+          .format(pixel=tf_pixel, miou=tf_miou))
     print(' * Pixel acc (CRF): {pixel.avg:.4f}, Mean acc (CRF): {mean.avg:.4f}, Mean IoU (CRF): {miou.avg:.4f}, Frequency-weighted IoU (CRF): {fwiou.avg:.4f}'
           .format(pixel=crf_pixel, mean=crf_mean, miou=crf_miou, fwiou=crf_fwiou))
 
