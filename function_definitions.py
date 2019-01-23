@@ -83,30 +83,23 @@ def mode_visualize(sess, FLAGS, TEST_DIR, validation_dataset_reader, pred_annota
                                  feed_dict={image: valid_images, annotation: valid_annotations,
                                             keep_probability: 1.0})
        
-    pixel_acc_op, pixel_acc_update_op = tf.metrics.accuracy(labels=annotation, predictions=pred_annotation)
-    mean_iou_op, mean_iou_update_op = tf.metrics.mean_iou(labels=annotation, predictions=pred_annotation, num_classes=NUM_OF_CLASSES)
+    # pixel_acc_op, pixel_acc_update_op = tf.metrics.accuracy(labels=annotation, predictions=pred_annotation)
+    # mean_iou_op, mean_iou_update_op = tf.metrics.mean_iou(labels=annotation, predictions=pred_annotation, num_classes=NUM_OF_CLASSES)
     
-    sess.run(tf.local_variables_initializer())
-    feed_dict={image: valid_images, annotation: valid_annotations, keep_probability: 1.0}
-    sess.run(
-        [pixel_acc_update_op, mean_iou_update_op],
-        feed_dict=feed_dict)
-    pixel_acc, tf_miou = sess.run(
-        [pixel_acc_op, mean_iou_op],
-        feed_dict=feed_dict)
+    # sess.run(tf.local_variables_initializer())
+    # feed_dict={image: valid_images, annotation: valid_annotations, keep_probability: 1.0}
+    # sess.run(
+        # [pixel_acc_update_op, mean_iou_update_op],
+        # feed_dict=feed_dict)
+    # pixel_acc, tf_miou = sess.run(
+        # [pixel_acc_op, mean_iou_op],
+        # feed_dict=feed_dict)
     
     valid_annotations = np.squeeze(valid_annotations, axis=3)
     pred = np.squeeze(pred, axis=3)
 
-    pixel = EM.AverageMeter()
-    mean = EM.AverageMeter()
-    miou = EM.AverageMeter()
-    fwiou = EM.AverageMeter()
-
-    crf_pixel = EM.AverageMeter()
-    crf_mean = EM.AverageMeter()
-    crf_miou = EM.AverageMeter()
-    crf_fwiou = EM.AverageMeter()
+    crossMats = list()
+    crf_crossMats = list()
 
     for itr in range(FLAGS.batch_size):
         utils.save_image(valid_images[itr].astype(
@@ -118,52 +111,31 @@ def mode_visualize(sess, FLAGS, TEST_DIR, validation_dataset_reader, pred_annota
         print("Saved image: %d" % itr)
 
         # Eval metrics for this image prediction
-        print(EM._calc_eval_metrics(
-            valid_annotations[itr].astype(
-                np.uint8), pred[itr].astype(
-                np.uint8), NUM_OF_CLASSES))
-                
-        pa, ma, miu, fwiu = EM._calc_eval_metrics_from_cross_matrix(
+        cm = EM._calcCrossMat(
             valid_annotations[itr].astype(
                 np.uint8), pred[itr].astype(
                 np.uint8), NUM_OF_CLASSES)
-
-        pixel.update(pa)
-        mean.update(ma)
-        miou.update(miu)
-        fwiou.update(fwiu)
-
-        print('Pixel acc {pixel.val:.4f} ({pixel.avg:.4f})\t'
-              'Mean acc {mean.val:.4f} ({mean.avg:.4f})\t'
-              'Mean IoU {miou.val:.4f} ({miou.avg:.4f})\t'
-              'Frequency-weighted IoU {fwiou.val:.4f} ({fwiou.avg:.4f})'.format(
-                  pixel=pixel, mean=mean, miou=miou, fwiou=fwiou))
+        crossMats.append(cm)
 
         """ Generate CRF """
         crfimage, crfoutput = inference.crf(TEST_DIR + "inp_" + str(itr) + ".png", TEST_DIR + "pred_" + str(
             itr) + ".png", TEST_DIR + "crf_" + str(itr) + ".png", NUM_OF_CLASSES, use_2d=True)
               
         # Eval metrics for this image prediction with crf
-        crf_pa, crf_ma, crf_miu, crf_fwiu = EM._calc_eval_metrics(
+        crf_cm = EM._calcCrossMat(
             valid_annotations[itr].astype(
                 np.uint8), crfoutput.astype(
                 np.uint8), NUM_OF_CLASSES)
+        crf_crossMats.append(crf_cm)
 
-        crf_pixel.update(crf_pa)
-        crf_mean.update(crf_ma)
-        crf_miou.update(crf_miu)
-        crf_fwiou.update(crf_fwiu)
-
-        print('Pixel acc (CRF): {pixel.val:.4f} ({pixel.avg:.4f}),\t'
-              'Mean acc (CRF): {mean.val:.4f} ({mean.avg:.4f}),\t'
-              'Mean IoU (CRF): {miou.val:.4f} ({miou.avg:.4f}),\t'
-              'Frequency-weighted IoU (CRF): {fwiou.val:.4f} ({fwiou.avg:.4f})'.format(pixel=crf_pixel, mean=crf_mean, miou=crf_miou, fwiou=crf_fwiou))
-        
-    print(' * Pixel acc: {pixel.avg:.4f}, Mean acc: {mean.avg:.4f}, Mean IoU: {miou.avg:.4f}, Frequency-weighted IoU: {fwiou.avg:.4f}'
-          .format(pixel=pixel, mean=mean, miou=miou, fwiou=fwiou))
-    print(" * Pixel acc (tf):", pixel_acc, ", Mean IoU (tf):", tf_miou)
-    print(' * Pixel acc (CRF): {pixel.avg:.4f}, Mean acc (CRF): {mean.avg:.4f}, Mean IoU (CRF): {miou.avg:.4f}, Frequency-weighted IoU (CRF): {fwiou.avg:.4f}'
-          .format(pixel=crf_pixel, mean=crf_mean, miou=crf_miou, fwiou=crf_fwiou))
+    print(">>> Prediction results:")
+    total_cm = np.sum(crossMats, axis=0)
+    EM.show_result(total_cm, NUM_OF_CLASSES)
+    
+    print("\n")
+    print(">>> Prediction results (CRF):")
+    crf_total_cm = np.sum(crf_crossMats, axis=0)
+    EM.show_result(crf_total_cm, NUM_OF_CLASSES)
 
 
 def mode_train_encoder(sess, FLAGS, net, train_records, pred_annotation, image, keep_probability, saver, loss_encoder, train_encoder_op, label, train_encoder_dataset_reader, validation_encoder_dataset_reader, DISPLAY_STEP=300):
@@ -341,29 +313,7 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
     validation_dataset_reader.reset_batch_offset(0)
 
     crossMats = list()
-    mIOU_all = list()
-    mFWIOU_all = list()
-    PA_all = list()
-    MPA_all = list()
-
-    pixel = EM.AverageMeter()
-    mean = EM.AverageMeter()
-    miou = EM.AverageMeter()
-    fwiou = EM.AverageMeter()
-    
-    tf_pixel = EM.AverageMeter()
-    tf_miou = EM.AverageMeter()
-
     crf_crossMats = list()
-    crf_mIOU_all = list()
-    crf_mFWIOU_all = list()
-    crf_PA_all = list()
-    crf_MPA_all = list()
-
-    crf_pixel = EM.AverageMeter()
-    crf_mean = EM.AverageMeter()
-    crf_miou = EM.AverageMeter()
-    crf_fwiou = EM.AverageMeter()
 
     for itr1 in range(validation_dataset_reader.get_num_of_records() // FLAGS.batch_size):
 
@@ -372,32 +322,13 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
         pred, logits1 = sess.run([pred_annotation, logits],
                                  feed_dict={image: valid_images, annotation: valid_annotations,
                                             keep_probability: 1.0})
-            
-        pixel_acc_op, pixel_acc_update_op = tf.metrics.accuracy(labels=annotation, predictions=pred_annotation)
-        mean_iou_op, mean_iou_update_op = tf.metrics.mean_iou(labels=annotation, predictions=pred_annotation, num_classes=NUM_OF_CLASSES)
-        
-        sess.run(tf.local_variables_initializer())
-        feed_dict={image: valid_images, annotation: valid_annotations, keep_probability: 1.0}
-        sess.run(
-            [pixel_acc_update_op, mean_iou_update_op],
-            feed_dict=feed_dict)
-        _pixel_acc, _mean_iou = sess.run(
-            [pixel_acc_op, mean_iou_op],
-            feed_dict=feed_dict)
-        
-        print("Pixel acc (tf):", _pixel_acc, ", Mean IoU (tf):", _mean_iou)    
-        tf_pixel.update(_pixel_acc)
-        tf_miou.update(_mean_iou)
-                                            
+               
         valid_annotations = np.squeeze(valid_annotations, axis=3)
         pred = np.squeeze(pred)
         print("logits shape:", logits1.shape)
         np.set_printoptions(threshold=np.inf)
 
         for itr2 in range(FLAGS.batch_size):
-
-            # crfoutput = crf(valid_images[itr2].astype(
-                # np.uint8), np.array(logits1[itr2]), NUM_OF_CLASSES)
 
             fig = plt.figure()
             pos = 240 + 1
@@ -431,31 +362,6 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
                     np.uint8), NUM_OF_CLASSES)
             crossMats.append(crossMat)
 
-            # Eval metrics for this image prediction
-            pa, ma, miu, fwiu = EM._calc_eval_metrics(
-                valid_annotations[itr2].astype(
-                    np.uint8), pred[itr2].astype(
-                    np.uint8), NUM_OF_CLASSES)
-
-            pixel.update(pa)
-            mean.update(ma)
-            miou.update(miu)
-            fwiou.update(fwiu)
-
-            PA_all.append(pa)
-            MPA_all.append(ma)
-            mIOU_all.append(miu)
-            mFWIOU_all.append(fwiu)
-
-            print('Test: [{0}/{1}]\t'
-                  'Pixel acc {pixel.val:.4f} ({pixel.avg:.4f})\t'
-                  'Mean acc {mean.val:.4f} ({mean.avg:.4f})\t'
-                  'Mean IoU {miou.val:.4f} ({miou.avg:.4f})\t'
-                  'Frequency-weighted IoU {fwiou.val:.4f} ({fwiou.avg:.4f})'.format((itr1 * FLAGS.batch_size + itr2), len(valid_records),
-                                                                                    pixel=pixel, mean=mean, miou=miou, fwiou=fwiou))
-
-            #print(cv2.absdiff(crfoutput.astype(np.uint8), valid_annotations[itr2].astype(np.uint8)))
-
             np.savetxt(TEST_DIR +
                        "Crossmatrix" +
                        str(itr1 *
@@ -480,13 +386,6 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
             crfimage, crfoutput = inference.crf(TEST_DIR + "inp_" + str(itr1 * FLAGS.batch_size + itr2) + ".png", TEST_DIR + "pred_" + str(
                 itr1 * FLAGS.batch_size + itr2) + ".png", TEST_DIR + "crf_" + str(itr1 * FLAGS.batch_size + itr2) + ".png", NUM_OF_CLASSES, use_2d=True)
 
-            # crfoutput = inference.crf(valid_images[itr2].astype(
-                # np.uint8), np.array(logits1[itr2]), NUM_OF_CLASSES)
-
-            # crfoutput = misc.imread(
-                # TEST_DIR + "crf_" + str(itr1 * FLAGS.batch_size + itr2) + ".png")
-            # print(pred[itr2].shape, crfoutput.shape)
-
             # Confusion matrix for this image prediction with crf
             crf_crossMat = EM._calcCrossMat(
                 valid_annotations[itr2].astype(
@@ -501,54 +400,15 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
                            itr2) +
                        ".csv", crf_crossMat, fmt='%4i', delimiter=',')
 
-            # Eval metrics for this image prediction with crf
-            crf_pa, crf_ma, crf_miu, crf_fwiu = EM._calc_eval_metrics(
-                valid_annotations[itr2].astype(
-                    np.uint8), crfoutput.astype(
-                    np.uint8), NUM_OF_CLASSES)
-
-            crf_pixel.update(crf_pa)
-            crf_mean.update(crf_ma)
-            crf_miou.update(crf_miu)
-            crf_fwiou.update(crf_fwiu)
-
-            crf_PA_all.append(crf_pa)
-            crf_MPA_all.append(crf_ma)
-            crf_mIOU_all.append(crf_miu)
-            crf_mFWIOU_all.append(crf_fwiu)
-
-            print('Test (CRF): [{0}/{1}],\t'
-                  'Pixel acc (CRF): {pixel.val:.4f} ({pixel.avg:.4f}),\t'
-                  'Mean acc (CRF): {mean.val:.4f} ({mean.avg:.4f}),\t'
-                  'Mean IoU (CRF): {miou.val:.4f} ({miou.avg:.4f}),\t'
-                  'Frequency-weighted IoU (CRF): {fwiou.val:.4f} ({fwiou.avg:.4f})'.format((itr1 * FLAGS.batch_size + itr2), len(valid_records),
-                                                                                           pixel=crf_pixel, mean=crf_mean, miou=crf_miou, fwiou=crf_fwiou))
-            
             pos = 240 + 4
             plt.subplot(pos)
             plt.imshow(crfoutput.astype(np.uint8),
                        cmap=plt.get_cmap('nipy_spectral'))
             plt.axis('off')
             plt.title('Prediction + CRF')
-            
-            # valid_annotations[itr2] = cv2.normalize(
-                # valid_annotations[itr2], None, 0, 255, cv2.NORM_MINMAX)
-            # crfoutput = cv2.normalize(
-                # crfoutput, None, 0, 255, cv2.NORM_MINMAX)
-                             
-            # utils.save_image(crfoutput, TEST_DIR, name="crf_" + str(itr1 * FLAGS.batch_size + itr2))
-                                                                
-            """ CRF end """
 
             plt.close('all')
             print("Saved image: %d" % (itr1 * FLAGS.batch_size + itr2))
-
-    print(' * Pixel acc: {pixel.avg:.4f}, Mean acc: {mean.avg:.4f}, Mean IoU: {miou.avg:.4f}, Frequency-weighted IoU: {fwiou.avg:.4f}'
-          .format(pixel=pixel, mean=mean, miou=miou, fwiou=fwiou))
-    print(' * Pixel acc (tf): {pixel.avg:.4f}, Mean IoU (tf): {miou.avg:.4f}'
-          .format(pixel=tf_pixel, miou=tf_miou))
-    print(' * Pixel acc (CRF): {pixel.avg:.4f}, Mean acc (CRF): {mean.avg:.4f}, Mean IoU (CRF): {miou.avg:.4f}, Frequency-weighted IoU (CRF): {fwiou.avg:.4f}'
-          .format(pixel=crf_pixel, mean=crf_mean, miou=crf_miou, fwiou=crf_fwiou))
 
     try:
         np.savetxt(
@@ -559,35 +419,11 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
                 axis=0),
             fmt='%4i',
             delimiter=',')
-        np.savetxt(
-            FLAGS.logs_dir +
-            "PixelAccuracies" +
-            ".csv",
-            PA_all,
-            fmt='%4f',
-            delimiter=',')
-        np.savetxt(
-            FLAGS.logs_dir +
-            "MeanAccuracies" +
-            ".csv",
-            MPA_all,
-            fmt='%4f',
-            delimiter=',')
-        np.savetxt(
-            FLAGS.logs_dir +
-            "mIoUs" +
-            ".csv",
-            mIOU_all,
-            fmt='%4f',
-            delimiter=',')
-        np.savetxt(
-            FLAGS.logs_dir +
-            "mFWIoUs" +
-            ".csv",
-            mFWIOU_all,
-            fmt='%4f',
-            delimiter=',')
-
+            
+        print(">>> Prediction results:")
+        total_cm = np.sum(crossMats, axis=0)
+        EM.show_result(total_cm, NUM_OF_CLASSES)
+        
         # Prediction with CRF
         np.savetxt(
             FLAGS.logs_dir +
@@ -597,35 +433,12 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
                 axis=0),
             fmt='%4i',
             delimiter=',')
-        np.savetxt(
-            FLAGS.logs_dir +
-            "CRF_PixelAccuracies" +
-            ".csv",
-            crf_PA_all,
-            fmt='%4f',
-            delimiter=',')
-        np.savetxt(
-            FLAGS.logs_dir +
-            "CRF_MeanAccuracies" +
-            ".csv",
-            crf_MPA_all,
-            fmt='%4f',
-            delimiter=',')
-        np.savetxt(
-            FLAGS.logs_dir +
-            "CRF_mIoUs" +
-            ".csv",
-            crf_mIOU_all,
-            fmt='%4f',
-            delimiter=',')
-        np.savetxt(
-            FLAGS.logs_dir +
-            "CRF_mFWIoUs" +
-            ".csv",
-            crf_mFWIOU_all,
-            fmt='%4f',
-            delimiter=',')
-
+        
+        print("\n")
+        print(">>> Prediction results (CRF):")
+        crf_total_cm = np.sum(crf_crossMats, axis=0)
+        EM.show_result(crf_total_cm, NUM_OF_CLASSES)
+        
     except Exception as err:
         print(err)
 

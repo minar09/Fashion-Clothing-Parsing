@@ -40,6 +40,9 @@ def show_result(hist, n_cl=18):
 
     #classes = ['background', 'hat', 'hair', 'sunglasses', 'upperclothes', 'skirt', 'pants', 'dress',
                #'belt', 'leftShoe', 'rightShoe', 'face', 'leftLeg', 'rightLeg', 'leftArm', 'rightArm', 'bag', 'scarf']
+    classes = ['bk', 'T-shirt', 'bag', 'belt', 'blazer', 'blouse', 'coat', 'dress', 'face', 'hair',
+               'hat', 'jeans', 'legging', 'pants', 'scarf', 'shoe', 'shorts', 'skin', 'skirt', 
+               'socks', 'stocking', 'sunglass', 'sweater']
     # num of correct pixels
     num_cor_pix = np.diag(hist)
     # num of gt pixels
@@ -48,20 +51,21 @@ def show_result(hist, n_cl=18):
 
     # @evaluation 1: overall accuracy
     acc = num_cor_pix.sum() / hist.sum()
-    print('>>>', 'overall accuracy', acc)
+    print('>>>', 'overall/pixel accuracy', acc)
     print('-' * 50)
 
     # @evaluation 2: mean accuracy & per-class accuracy
     print('Accuracy for each class (pixel accuracy):')
-    for i in xrange(n_cl):
+    for i in range(n_cl):
         print('%-15s: %f' % (classes[i], num_cor_pix[i] / num_gt_pix[i]))
     acc = num_cor_pix / num_gt_pix
     print('>>>', 'mean accuracy', np.nanmean(acc))
     print('-' * 50)
 
     # @evaluation 3: mean IU & per-class IU
+    print('IoU for each class:')
     union = num_gt_pix + hist.sum(0) - num_cor_pix
-    for i in xrange(n_cl):
+    for i in range(n_cl):
         print('%-15s: %f' % (classes[i], num_cor_pix[i] / union[i]))
     iu = num_cor_pix / (num_gt_pix + hist.sum(0) - num_cor_pix)
     print('>>>', 'mean IoU', np.nanmean(iu))
@@ -205,7 +209,7 @@ def _calc_eval_metrics_from_cross_matrix(gtimage, predimage, num_classes):
     meanIoU = (float)(np.nansum(IoUs) / num_classes)    # mean IoU
     meanFrqWIoU = (float)(np.nansum(FWIoUs) / total_pixels)    # Total frequency-weighted IoU
 
-    return pixel_accuracy_, mean_accuracy, meanIoU, meanFrqWIoU
+    return pixel_accuracy_, mean_accuracy, meanIoU, meanFrqWIoU, cross_mat
 
 
 """
