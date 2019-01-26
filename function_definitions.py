@@ -411,32 +411,28 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
             print("Saved image: %d" % (itr1 * FLAGS.batch_size + itr2))
 
     try:
+        total_cm = np.sum(crossMats, axis=0)
         np.savetxt(
             FLAGS.logs_dir +
             "Crossmatrix.csv",
-            np.sum(
-                crossMats,
-                axis=0),
+            total_cm,
             fmt='%4i',
             delimiter=',')
             
         print(">>> Prediction results:")
-        total_cm = np.sum(crossMats, axis=0)
         EM.show_result(total_cm, NUM_OF_CLASSES)
         
         # Prediction with CRF
+        crf_total_cm = np.sum(crf_crossMats, axis=0)
         np.savetxt(
             FLAGS.logs_dir +
             "CRF_Crossmatrix.csv",
-            np.sum(
-                crf_crossMats,
-                axis=0),
+            crf_total_cm,
             fmt='%4i',
             delimiter=',')
         
         print("\n")
         print(">>> Prediction results (CRF):")
-        crf_total_cm = np.sum(crf_crossMats, axis=0)
         EM.show_result(crf_total_cm, NUM_OF_CLASSES)
         
     except Exception as err:

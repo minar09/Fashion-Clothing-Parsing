@@ -3,6 +3,7 @@ from PIL import Image
 import numpy as np
 import tensorflow as tf
 import time
+import sklearn.metrics
 
 # Hide the warning messages about CPU/GPU, invalid error
 import os
@@ -10,6 +11,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 np.seterr(divide='ignore', invalid='ignore')
 
 
+"""LIP functions"""
 def fast_hist(a, b, n):
     k = (a >= 0) & (a < n)
     return np.bincount(n * a[k].astype(int) + b[k], minlength=n**2).reshape(n, n)
@@ -208,6 +210,45 @@ def _calc_eval_metrics_from_cross_matrix(gtimage, predimage, num_classes):
     mean_accuracy = (float)(np.nansum(class_accuracies) / num_classes)    # mean accuracy
     meanIoU = (float)(np.nansum(IoUs) / num_classes)    # mean IoU
     meanFrqWIoU = (float)(np.nansum(FWIoUs) / total_pixels)    # Total frequency-weighted IoU
+
+    return pixel_accuracy_, mean_accuracy, meanIoU, meanFrqWIoU, cross_mat
+
+
+def _calc_eval_metrics_from_confusion_matrix(cross_mat, num_classes):
+    
+    class_intersections = np.diag(cross_mat)
+    total_intersections = np.nansum(class_intersections)
+    
+    gt_pixels = np.sum(cross_mat, axis=1)
+    pred_pixels = np.sum(cross_mat, axis=0)
+    total_pixels = np.sum(cross_mat)
+    
+    # mean accuracy, mean IoU, frequency-weighted IoU
+    class_accuracies = []
+    IoUs = []
+    FWIoUs = []
+    
+    for i in range(len(class_intersections)):
+        try:
+            acc = (float)(class_intersections[i] / gt_pixels[i])
+            class_accuracies.append(acc)
+        except:
+            class_accuracies.append(0)
+        
+        try:
+            iu = (float)(class_intersections[i] / (gt_pixels[i] + pred_pixels[i] - class_intersections[i]))
+            IoUs.append(iu)
+
+            fwiu = (float)((gt_pixels[i] * iu) / total_pixels)
+            FWIoUs.append(fwiu)
+        except:
+            IoUs.append(0)
+            FWIoUs.append(0)
+        
+    pixel_accuracy_ = (float)(total_intersections / total_pixels)    # pixel accuracy
+    mean_accuracy = (float)(np.nansum(class_accuracies) / num_classes)    # mean accuracy
+    meanIoU = (float)(np.nansum(IoUs) / num_classes)    # mean IoU
+    meanFrqWIoU = np.nansum(FWIoUs)    # Total frequency-weighted IoU
 
     return pixel_accuracy_, mean_accuracy, meanIoU, meanFrqWIoU, cross_mat
 

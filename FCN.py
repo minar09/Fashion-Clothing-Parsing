@@ -25,16 +25,16 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 
 FLAGS = tf.flags.FLAGS
-tf.flags.DEFINE_integer("batch_size", "32", "batch size for training")
+tf.flags.DEFINE_integer("batch_size", "2", "batch size for training")
 tf.flags.DEFINE_integer(
     "training_epochs",
     "30",
     "number of epochs for training")
-tf.flags.DEFINE_string("logs_dir", "logs/FCN_LIP/", "path to logs directory")
-#tf.flags.DEFINE_string("data_dir", "E:/Dataset/Dataset10k/", "path to dataset")
-#tf.flags.DEFINE_string("data_dir", "E:/Dataset/CFPD/", "path to dataset")
-tf.flags.DEFINE_string("data_dir", "E:/Dataset/LIP/", "path to dataset")
-#tf.flags.DEFINE_string("data_dir", "E:/Dataset/MIT_SceneParsing/ADEChallengeData2016/images/", "path to dataset")
+tf.flags.DEFINE_string("logs_dir", "logs/FCN_CFPD/", "path to logs directory")
+# tf.flags.DEFINE_string("data_dir", "E:/Dataset/Dataset10k/", "path to dataset")
+tf.flags.DEFINE_string("data_dir", "E:/Dataset/CFPD/", "path to dataset")
+# tf.flags.DEFINE_string("data_dir", "E:/Dataset/LIP/", "path to dataset")
+# tf.flags.DEFINE_string("data_dir", "E:/Dataset/MIT_SceneParsing/ADEChallengeData2016/images/", "path to dataset")
 tf.flags.DEFINE_float(
     "learning_rate",
     "1e-4",
@@ -48,9 +48,9 @@ tf.flags.DEFINE_string('mode', "train", "Mode train/ test/ visualize")
 MODEL_URL = 'http://www.vlfeat.org/matconvnet/models/beta16/imagenet-vgg-verydeep-19.mat'
 
 MAX_ITERATION = int(1e5 + 1001)
-# NUM_OF_CLASSES = 18  # human parsing  59 #cloth   151  # MIT Scene
-#NUM_OF_CLASSES = 23  # total parsing  23 #cloth main   13  # CFPD
-NUM_OF_CLASSES = 20  # total parsing  23 #cloth main   13  # CFPD  # LIP 20
+# NUM_OF_CLASSES = 18  # Upper-lower cloth parsing # Dressup 10k
+NUM_OF_CLASSES = 23  # Fashion parsing 23 # CFPD
+# NUM_OF_CLASSES = 20  # human parsing # LIP
 IMAGE_SIZE = 224
 DISPLAY_STEP = 300
 TEST_DIR = FLAGS.logs_dir + "TestImage/"
@@ -220,9 +220,9 @@ def main(argv=None):
     summary_op = tf.summary.merge_all()
 
     print("Setting up image reader from ", FLAGS.data_dir, "...")
-    #train_records, valid_records = scene_parsing.read_dataset(FLAGS.data_dir)
-    #train_records, valid_records, test_records = fashion_parsing.read_dataset(FLAGS.data_dir)
-    train_records, valid_records = human_parsing.read_dataset(FLAGS.data_dir)
+    # train_records, valid_records = scene_parsing.read_dataset(FLAGS.data_dir)
+    train_records, valid_records, test_records = fashion_parsing.read_dataset(FLAGS.data_dir)
+    # train_records, valid_records = human_parsing.read_dataset(FLAGS.data_dir)
     print("data dir:", FLAGS.data_dir)
     print("train_records length :", len(train_records))
     print("valid_records length :", len(valid_records))
@@ -235,16 +235,16 @@ def main(argv=None):
             train_records, image_options)
         validation_dataset_reader = dataset.BatchDatset(
             valid_records, image_options)
-        #test_dataset_reader = dataset.BatchDatset(
-            #test_records, image_options)
+        test_dataset_reader = dataset.BatchDatset(
+            test_records, image_options)
     if FLAGS.mode == 'visualize':
         validation_dataset_reader = dataset.BatchDatset(
             valid_records, image_options)
     if FLAGS.mode == 'test':
-        validation_dataset_reader = dataset.BatchDatset(
-            valid_records, image_options)
-        #test_dataset_reader = dataset.BatchDatset(
-            #test_records, image_options)
+        # validation_dataset_reader = dataset.BatchDatset(
+            # valid_records, image_options)
+        test_dataset_reader = dataset.BatchDatset(
+            test_records, image_options)
 
     sess = tf.Session()
 
