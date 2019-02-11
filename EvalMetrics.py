@@ -42,9 +42,13 @@ def show_result(hist, n_cl=18):
 
     #classes = ['background', 'hat', 'hair', 'sunglasses', 'upperclothes', 'skirt', 'pants', 'dress',
                #'belt', 'leftShoe', 'rightShoe', 'face', 'leftLeg', 'rightLeg', 'leftArm', 'rightArm', 'bag', 'scarf']
-    classes = ['bk', 'T-shirt', 'bag', 'belt', 'blazer', 'blouse', 'coat', 'dress', 'face', 'hair',
-               'hat', 'jeans', 'legging', 'pants', 'scarf', 'shoe', 'shorts', 'skin', 'skirt', 
-               'socks', 'stocking', 'sunglass', 'sweater']
+    #classes = ['bk', 'T-shirt', 'bag', 'belt', 'blazer', 'blouse', 'coat', 'dress', 'face', 'hair',
+               #'hat', 'jeans', 'legging', 'pants', 'scarf', 'shoe', 'shorts', 'skin', 'skirt', 
+               #'socks', 'stocking', 'sunglass', 'sweater']
+    classes = ['background', 'hat', 'hair', 'glove', 'sunglasses', 'upperclothes',
+               'dress', 'coat', 'socks', 'pants', 'jumpsuits', 'scarf', 'skirt',
+               'face', 'leftArm', 'rightArm', 'leftLeg', 'rightLeg', 'leftShoe',
+               'rightShoe']
     # num of correct pixels
     num_cor_pix = np.diag(hist)
     # num of gt pixels

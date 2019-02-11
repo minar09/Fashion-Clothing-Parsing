@@ -24,6 +24,14 @@ import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 
+# colour map for LIP
+LIP_cmap = [(0, 0, 0)                 # 0=Background
+                 # 1=Hat,  2=Hair,    3=Glove, 4=Sunglasses, 5=UpperClothes
+                 # 6=Dress, 7=Coat, 8=Socks, 9=Pants, 10=Jumpsuits
+                 # 11=Scarf, 12=Skirt, 13=Face, 14=LeftArm, 15=RightArm
+                 , (128, 0, 0), (255, 0, 0), (0, 85, 0), (170, 0, 51), (255, 85, 0), (0, 0, 85), (0, 119, 221), (85, 85, 0), (0, 85, 85), (85, 51, 0), (52, 86, 128), (0, 128, 0), (0, 0, 255), (51, 170, 221), (0, 255, 255), (85, 255, 170), (170, 255, 85), (255, 255, 0), (255, 170, 0)]
+
+
 """
    Optimization functions
 """
@@ -370,8 +378,7 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
                        ".csv", crossMat, fmt='%4i', delimiter=',')
 
             # Save input, gt, pred, crf_pred, sum figures for this image
-            plt.savefig(TEST_DIR + "resultSum_" +
-                        str(itr1 * FLAGS.batch_size + itr2))
+            
             # ---------------------------------------------
             utils.save_image(valid_images[itr2].astype(np.uint8), TEST_DIR,
                              name="inp_" + str(itr1 * FLAGS.batch_size + itr2))
@@ -406,6 +413,9 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
                        cmap=plt.get_cmap('nipy_spectral'))
             plt.axis('off')
             plt.title('Prediction + CRF')
+            
+            plt.savefig(TEST_DIR + "resultSum_" +
+                        str(itr1 * FLAGS.batch_size + itr2))
 
             plt.close('all')
             print("Saved image: %d" % (itr1 * FLAGS.batch_size + itr2))

@@ -22,7 +22,7 @@ def read_dataset(data_dir):
     # 'filename': filename}
     training_records = []
 
-    testdir = "E:/Dataset/LIP/train_images/"
+    testdir = "D:/Datasets/LIP/training/images/"
 
     print("## Training dir:", testdir)
     for filename in glob.glob(testdir + '*.jpg'):  # assuming jpg files
@@ -30,13 +30,13 @@ def read_dataset(data_dir):
         record['image'] = filename
         record['filename'] = filename
         record['annotation'] = filename.replace(
-            "train_images", "train_segmentations").replace(
+            "images", "labels").replace(
             "jpg", "png")
         training_records.append(record)
 
     validation_records = []
 
-    validationdir = "E:/Dataset/LIP/val_images/"
+    validationdir = "D:/Datasets/LIP/validation/images/"
 
     print("## Validation dir:", validationdir)
     for filename in glob.glob(
@@ -45,7 +45,7 @@ def read_dataset(data_dir):
         record['image'] = filename
         record['filename'] = filename
         record['annotation'] = filename.replace(
-            "val_images", "val_segmentations").replace(
+            "images", "labels").replace(
             "jpg", "png")
         validation_records.append(record)
 
