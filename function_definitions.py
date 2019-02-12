@@ -1,36 +1,30 @@
 from __future__ import print_function
-import cv2
-import scipy.misc as misc
+
 import matplotlib.pyplot as plt
-from skimage.color import rgb2gray
-from skimage.color import gray2rgb
-from pydensecrf.utils import unary_from_labels, create_pairwise_bilateral, create_pairwise_gaussian, unary_from_softmax
-from skimage.io import imread, imsave
-import pydensecrf.densecrf as dcrf
 from six.moves import xrange
-import BatchDatsetReader as dataset
 import datetime
-import read_MITSceneParsingData as scene_parsing
-import TensorflowUtils as utils
-from PIL import Image
+
 import numpy as np
 import tensorflow as tf
 import time
-import EvalMetrics as EM
+import EvalMetrics
 import inference
+import TensorflowUtils as Utils
 
 # Hide the warning messages about CPU/GPU
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 
-# colour map for LIP
-LIP_cmap = [(0, 0, 0)                 # 0=Background
-                 # 1=Hat,  2=Hair,    3=Glove, 4=Sunglasses, 5=UpperClothes
-                 # 6=Dress, 7=Coat, 8=Socks, 9=Pants, 10=Jumpsuits
-                 # 11=Scarf, 12=Skirt, 13=Face, 14=LeftArm, 15=RightArm
-                 , (128, 0, 0), (255, 0, 0), (0, 85, 0), (170, 0, 51), (255, 85, 0), (0, 0, 85), (0, 119, 221), (85, 85, 0), (0, 85, 85), (85, 51, 0), (52, 86, 128), (0, 128, 0), (0, 0, 255), (51, 170, 221), (0, 255, 255), (85, 255, 170), (170, 255, 85), (255, 255, 0), (255, 170, 0)]
-
+# color map for LIP
+LIP_colors = [(0, 0, 0)                 # 0=Background
+              # 1=Hat,  2=Hair,    3=Glove, 4=Sunglasses, 5=UpperClothes
+              # 6=Dress, 7=Coat, 8=Socks, 9=Pants, 10=Jumpsuits
+              # 11=Scarf, 12=Skirt, 13=Face, 14=LeftArm, 15=RightArm
+              , (128, 0, 0), (255, 0, 0), (0, 85, 0), (170, 0, 51), (255, 85, 0), (0, 0, 85), (0, 119, 221), (85, 85, 0), (0, 85, 85), (85, 51, 0), (52, 86, 128), (0, 128, 0), (0, 0, 255), (51, 170, 221), (0, 255, 255), (85, 255, 170), (170, 255, 85), (255, 255, 0), (255, 170, 0)]
+cmap_name = 'lip_cmap'
+n_bins = [3, 6, 10, 100]  # Discretizes the interpolation into bins
+# lip_cm = LinearSegmentedColormap.from_list(cmap_name, LIP_colors, N=n_bin)
 
 """
    Optimization functions
@@ -63,16 +57,16 @@ def vgg_net(weights, image):
             # matconvnet: weights are [width, height, in_channels, out_channels]
             # tensorflow: weights are [height, width, in_channels,
             # out_channels]
-            kernels = utils.get_variable(np.transpose(
+            kernels = Utils.get_variable(np.transpose(
                 kernels, (1, 0, 2, 3)), name=name + "_w")
-            bias = utils.get_variable(bias.reshape(-1), name=name + "_b")
-            current = utils.conv2d_basic(current, kernels, bias)
+            bias = Utils.get_variable(bias.reshape(-1), name=name + "_b")
+            current = Utils.conv2d_basic(current, kernels, bias)
         elif kind == 'relu':
             current = tf.nn.relu(current, name=name)
             # if FLAGS.debug:
             # util.add_activation_summary(current)
         elif kind == 'pool':
-            current = utils.avg_pool_2x2(current)
+            current = Utils.avg_pool_2x2(current)
         net[name] = current
         # added for resume better
     global_iter_counter = tf.Variable(0, name='global_step', trainable=False)
@@ -84,25 +78,25 @@ def vgg_net(weights, image):
 def mode_visualize(sess, FLAGS, TEST_DIR, validation_dataset_reader, pred_annotation, image, annotation, keep_probability, NUM_OF_CLASSES):
     if not os.path.exists(TEST_DIR):
         os.makedirs(TEST_DIR)
-    
+
     valid_images, valid_annotations = validation_dataset_reader.get_random_batch(
         FLAGS.batch_size)
     pred = sess.run(pred_annotation,
-                                 feed_dict={image: valid_images, annotation: valid_annotations,
-                                            keep_probability: 1.0})
-       
+                    feed_dict={image: valid_images, annotation: valid_annotations,
+                               keep_probability: 1.0})
+
     # pixel_acc_op, pixel_acc_update_op = tf.metrics.accuracy(labels=annotation, predictions=pred_annotation)
     # mean_iou_op, mean_iou_update_op = tf.metrics.mean_iou(labels=annotation, predictions=pred_annotation, num_classes=NUM_OF_CLASSES)
-    
+
     # sess.run(tf.local_variables_initializer())
     # feed_dict={image: valid_images, annotation: valid_annotations, keep_probability: 1.0}
     # sess.run(
-        # [pixel_acc_update_op, mean_iou_update_op],
-        # feed_dict=feed_dict)
+    # [pixel_acc_update_op, mean_iou_update_op],
+    # feed_dict=feed_dict)
     # pixel_acc, tf_miou = sess.run(
-        # [pixel_acc_op, mean_iou_op],
-        # feed_dict=feed_dict)
-    
+    # [pixel_acc_op, mean_iou_op],
+    # feed_dict=feed_dict)
+
     valid_annotations = np.squeeze(valid_annotations, axis=3)
     pred = np.squeeze(pred, axis=3)
 
@@ -110,16 +104,16 @@ def mode_visualize(sess, FLAGS, TEST_DIR, validation_dataset_reader, pred_annota
     crf_crossMats = list()
 
     for itr in range(FLAGS.batch_size):
-        utils.save_image(valid_images[itr].astype(
+        Utils.save_image(valid_images[itr].astype(
             np.uint8), TEST_DIR, name="inp_" + str(itr))
-        utils.save_image(valid_annotations[itr].astype(
+        Utils.save_image(valid_annotations[itr].astype(
             np.uint8) * 255 / NUM_OF_CLASSES, TEST_DIR, name="gt_" + str(itr))
-        utils.save_image(pred[itr].astype(
+        Utils.save_image(pred[itr].astype(
             np.uint8) * 255 / NUM_OF_CLASSES, TEST_DIR, name="pred_" + str(itr))
         print("Saved image: %d" % itr)
 
         # Eval metrics for this image prediction
-        cm = EM._calcCrossMat(
+        cm = EvalMetrics._calcCrossMat(
             valid_annotations[itr].astype(
                 np.uint8), pred[itr].astype(
                 np.uint8), NUM_OF_CLASSES)
@@ -128,9 +122,9 @@ def mode_visualize(sess, FLAGS, TEST_DIR, validation_dataset_reader, pred_annota
         """ Generate CRF """
         crfimage, crfoutput = inference.crf(TEST_DIR + "inp_" + str(itr) + ".png", TEST_DIR + "pred_" + str(
             itr) + ".png", TEST_DIR + "crf_" + str(itr) + ".png", NUM_OF_CLASSES, use_2d=True)
-              
+
         # Eval metrics for this image prediction with crf
-        crf_cm = EM._calcCrossMat(
+        crf_cm = EvalMetrics._calcCrossMat(
             valid_annotations[itr].astype(
                 np.uint8), crfoutput.astype(
                 np.uint8), NUM_OF_CLASSES)
@@ -138,12 +132,12 @@ def mode_visualize(sess, FLAGS, TEST_DIR, validation_dataset_reader, pred_annota
 
     print(">>> Prediction results:")
     total_cm = np.sum(crossMats, axis=0)
-    EM.show_result(total_cm, NUM_OF_CLASSES)
-    
+    EvalMetrics.show_result(total_cm, NUM_OF_CLASSES)
+
     print("\n")
     print(">>> Prediction results (CRF):")
     crf_total_cm = np.sum(crf_crossMats, axis=0)
-    EM.show_result(crf_total_cm, NUM_OF_CLASSES)
+    EvalMetrics.show_result(crf_total_cm, NUM_OF_CLASSES)
 
 
 def mode_train_encoder(sess, FLAGS, net, train_records, pred_annotation, image, keep_probability, saver, loss_encoder, train_encoder_op, label, train_encoder_dataset_reader, validation_encoder_dataset_reader, DISPLAY_STEP=300):
@@ -330,7 +324,7 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
         pred, logits1 = sess.run([pred_annotation, logits],
                                  feed_dict={image: valid_images, annotation: valid_annotations,
                                             keep_probability: 1.0})
-               
+
         valid_annotations = np.squeeze(valid_annotations, axis=3)
         pred = np.squeeze(pred)
         print("logits shape:", logits1.shape)
@@ -364,7 +358,7 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
             plt.title('Prediction')
 
             # Confusion matrix for this image prediction
-            crossMat = EM._calcCrossMat(
+            crossMat = EvalMetrics._calcCrossMat(
                 valid_annotations[itr2].astype(
                     np.uint8), pred[itr2].astype(
                     np.uint8), NUM_OF_CLASSES)
@@ -378,23 +372,23 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
                        ".csv", crossMat, fmt='%4i', delimiter=',')
 
             # Save input, gt, pred, crf_pred, sum figures for this image
-            
+
             # ---------------------------------------------
-            utils.save_image(valid_images[itr2].astype(np.uint8), TEST_DIR,
+            Utils.save_image(valid_images[itr2].astype(np.uint8), TEST_DIR,
                              name="inp_" + str(itr1 * FLAGS.batch_size + itr2))
-            utils.save_image(valid_annotations[itr2].astype(np.uint8), TEST_DIR,
+            Utils.save_image(valid_annotations[itr2].astype(np.uint8), TEST_DIR,
                              name="gt_" + str(itr1 * FLAGS.batch_size + itr2))
-            utils.save_image(pred[itr2].astype(np.uint8),
+            Utils.save_image(pred[itr2].astype(np.uint8),
                              TEST_DIR,
                              name="pred_" + str(itr1 * FLAGS.batch_size + itr2))
-                             
+
             # --------------------------------------------------
             """ Generate CRF """
             crfimage, crfoutput = inference.crf(TEST_DIR + "inp_" + str(itr1 * FLAGS.batch_size + itr2) + ".png", TEST_DIR + "pred_" + str(
                 itr1 * FLAGS.batch_size + itr2) + ".png", TEST_DIR + "crf_" + str(itr1 * FLAGS.batch_size + itr2) + ".png", NUM_OF_CLASSES, use_2d=True)
 
             # Confusion matrix for this image prediction with crf
-            crf_crossMat = EM._calcCrossMat(
+            crf_crossMat = EvalMetrics._calcCrossMat(
                 valid_annotations[itr2].astype(
                     np.uint8), crfoutput.astype(
                     np.uint8), NUM_OF_CLASSES)
@@ -413,7 +407,7 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
                        cmap=plt.get_cmap('nipy_spectral'))
             plt.axis('off')
             plt.title('Prediction + CRF')
-            
+
             plt.savefig(TEST_DIR + "resultSum_" +
                         str(itr1 * FLAGS.batch_size + itr2))
 
@@ -428,10 +422,10 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
             total_cm,
             fmt='%4i',
             delimiter=',')
-            
+
         print(">>> Prediction results:")
-        EM.show_result(total_cm, NUM_OF_CLASSES)
-        
+        EvalMetrics.show_result(total_cm, NUM_OF_CLASSES)
+
         # Prediction with CRF
         crf_total_cm = np.sum(crf_crossMats, axis=0)
         np.savetxt(
@@ -440,11 +434,11 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
             crf_total_cm,
             fmt='%4i',
             delimiter=',')
-        
+
         print("\n")
         print(">>> Prediction results (CRF):")
-        EM.show_result(crf_total_cm, NUM_OF_CLASSES)
-        
+        EvalMetrics.show_result(crf_total_cm, NUM_OF_CLASSES)
+
     except Exception as err:
         print(err)
 

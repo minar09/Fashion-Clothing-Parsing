@@ -12,10 +12,10 @@ def main():
 
 
 def init_path():
-    
+
     val_output_dir = 'logs/UNet_CFPD/pred/'
     val_label_dir = 'logs/UNet_CFPD/gt/'
-    
+
     val_pred_file_names = os.listdir(val_output_dir)
     val_label_file_names = os.listdir(val_label_dir)
 
@@ -57,19 +57,21 @@ def compute_hist(images, labels):
         hist += fast_hist(label_array, image_array, n_cl)
         cm = EM._calcCrossMat(label_array, image_array, n_cl)
         crossMats.append(cm)
-        
+
     T_CM = np.sum(crossMats, axis=0)
-    np.savetxt("logs/UNet_CFPD/our_totalCM.csv", T_CM, fmt='%4i', delimiter=',')
+    np.savetxt("logs/UNet_CFPD/our_totalCM.csv",
+               T_CM, fmt='%4i', delimiter=',')
     print(EM._calc_eval_metrics_from_confusion_matrix(T_CM, n_cl))
 
     return hist
 
 
 def show_result(hist):
-    np.savetxt("logs/UNet_CFPD/JPP_totalCM.csv", hist, fmt='%4i', delimiter=',')
+    np.savetxt("logs/UNet_CFPD/JPP_totalCM.csv",
+               hist, fmt='%4i', delimiter=',')
 
     classes = ['bk', 'T-shirt', 'bag', 'belt', 'blazer', 'blouse', 'coat', 'dress', 'face', 'hair',
-               'hat', 'jeans', 'legging', 'pants', 'scarf', 'shoe', 'shorts', 'skin', 'skirt', 
+               'hat', 'jeans', 'legging', 'pants', 'scarf', 'shoe', 'shorts', 'skin', 'skirt',
                'socks', 'stocking', 'sunglass', 'sweater']
     # num of correct pixels
     num_cor_pix = np.diag(hist)

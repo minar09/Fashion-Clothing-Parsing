@@ -1,37 +1,49 @@
 from __future__ import print_function
-import cv2
-import matplotlib.pyplot as plt
-from skimage.color import rgb2gray
-from skimage.color import gray2rgb
-from pydensecrf.utils import unary_from_labels, create_pairwise_bilateral, create_pairwise_gaussian, unary_from_softmax
-from skimage.io import imread, imsave
-import pydensecrf.densecrf as dcrf
-from six.moves import xrange
-import BatchDatsetReader as dataset
-import datetime
-import read_MITSceneParsingData as scene_parsing
-import read_CFPD_data as fashion_parsing
-import read_LIP_data as human_parsing
-import TensorflowUtils as utils
-from PIL import Image
-import numpy as np
-import tensorflow as tf
-import time
+
+import BatchDatsetReader as DataSetReader
+import read_10k_data as fashion_parsing
+import read_CFPD_data as ClothingParsing
+import read_LIP_data as HumanParsing
+import TensorflowUtils as Utils
 import function_definitions as fd
+
+import tensorflow as tf
 
 # Hide the warning messages about CPU/GPU
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 
+DATA_SET = "10k"
+# DATA_SET = "CFPD"
+# DATA_SET = "LIP"
+
 FLAGS = tf.flags.FLAGS
-tf.flags.DEFINE_integer("batch_size", "40", "batch size for training")
+tf.flags.DEFINE_integer("batch_size", "42", "batch size for training")
 tf.flags.DEFINE_integer(
     "training_epochs",
     "30",
     "number of epochs for training")
-tf.flags.DEFINE_string("logs_dir", "logs/UNet_LIP/", "path to logs directory")
-tf.flags.DEFINE_string("data_dir", "D:/Datasets/LIP/", "path to dataset")
+
+if DATA_SET == "10k":
+    tf.flags.DEFINE_string("logs_dir", "logs/UNet_10k/",
+                           "path to logs directory")
+if DATA_SET == "CFPD":
+    tf.flags.DEFINE_string("logs_dir", "logs/UNet_CFPD/",
+                           "path to logs directory")
+if DATA_SET == "LIP":
+    tf.flags.DEFINE_string("logs_dir", "logs/UNet_LIP/",
+                           "path to logs directory")
+
+if DATA_SET == "10k":
+    tf.flags.DEFINE_string(
+        "data_dir", "D:/Datasets/Dressup10k/", "path to dataset")
+if DATA_SET == "CFPD":
+    tf.flags.DEFINE_string(
+        "data_dir", "D:/Datasets/CFPD/", "path to dataset")
+if DATA_SET == "LIP":
+    tf.flags.DEFINE_string(
+        "data_dir", "D:/Datasets/LIP/", "path to dataset")
 
 tf.flags.DEFINE_float(
     "learning_rate",
@@ -40,13 +52,17 @@ tf.flags.DEFINE_float(
 tf.flags.DEFINE_string("model_dir", "Model_zoo/", "Path to vgg model mat")
 tf.flags.DEFINE_bool('debug', "False", "Debug mode: True/ False")
 tf.flags.DEFINE_string('mode', "train", "Mode train/ test/ visualize")
-
-MODEL_URL = 'http://www.vlfeat.org/matconvnet/models/beta16/imagenet-vgg-verydeep-19.mat'
+# tf.flags.DEFINE_string('mode', "test", "Mode train/ test/ visualize")
+# tf.flags.DEFINE_string('mode', "visualize", "Mode train/ test/ visualize")
 
 MAX_ITERATION = int(1e5 + 1001)
-# NUM_OF_CLASSES = 18  # human parsing  59 #cloth   151  # MIT Scene
-# NUM_OF_CLASSES = 23  # total parsing  23 #cloth main   13  # CFPD
-NUM_OF_CLASSES = 20  # human parsing # LIP
+
+NUM_OF_CLASSES = 18  # Upper-lower cloth parsing # Dressup 10k
+if DATA_SET == "CFPD":
+    NUM_OF_CLASSES = 23  # Fashion parsing 23 # CFPD
+if DATA_SET == "LIP":
+    NUM_OF_CLASSES = 20  # human parsing # LIP
+
 IMAGE_SIZE = 224
 DISPLAY_STEP = 300
 TEST_DIR = FLAGS.logs_dir + "TestImage/"
@@ -72,81 +88,81 @@ def unetinference(image, keep_prob):
         is_training = True
 
         # 1, 1, 3
-        conv1_1 = utils.conv(
+        conv1_1 = Utils.conv(
             inputs,
             filters=64,
             l2_reg_scale=l2_reg,
             batchnorm_istraining=is_training)
-        conv1_2 = utils.conv(
+        conv1_2 = Utils.conv(
             conv1_1,
             filters=64,
             l2_reg_scale=l2_reg,
             batchnorm_istraining=is_training)
-        pool1 = utils.pool(conv1_2)
+        pool1 = Utils.pool(conv1_2)
 
         # 1/2, 1/2, 64
-        conv2_1 = utils.conv(
+        conv2_1 = Utils.conv(
             pool1,
             filters=128,
             l2_reg_scale=l2_reg,
             batchnorm_istraining=is_training)
-        conv2_2 = utils.conv(
+        conv2_2 = Utils.conv(
             conv2_1,
             filters=128,
             l2_reg_scale=l2_reg,
             batchnorm_istraining=is_training)
-        pool2 = utils.pool(conv2_2)
+        pool2 = Utils.pool(conv2_2)
 
         # 1/4, 1/4, 128
-        conv3_1 = utils.conv(
+        conv3_1 = Utils.conv(
             pool2,
             filters=256,
             l2_reg_scale=l2_reg,
             batchnorm_istraining=is_training)
-        conv3_2 = utils.conv(
+        conv3_2 = Utils.conv(
             conv3_1,
             filters=256,
             l2_reg_scale=l2_reg,
             batchnorm_istraining=is_training)
-        pool3 = utils.pool(conv3_2)
+        pool3 = Utils.pool(conv3_2)
 
         # 1/8, 1/8, 256
-        conv4_1 = utils.conv(
+        conv4_1 = Utils.conv(
             pool3,
             filters=512,
             l2_reg_scale=l2_reg,
             batchnorm_istraining=is_training)
-        conv4_2 = utils.conv(
+        conv4_2 = Utils.conv(
             conv4_1,
             filters=512,
             l2_reg_scale=l2_reg,
             batchnorm_istraining=is_training)
-        pool4 = utils.pool(conv4_2)
+        pool4 = Utils.pool(conv4_2)
 
         # 1/16, 1/16, 512
-        conv5_1 = utils.conv(pool4, filters=1024, l2_reg_scale=l2_reg)
-        conv5_2 = utils.conv(conv5_1, filters=1024, l2_reg_scale=l2_reg)
-        concated1 = tf.concat([utils.conv_transpose(
+        conv5_1 = Utils.conv(pool4, filters=1024, l2_reg_scale=l2_reg)
+        conv5_2 = Utils.conv(conv5_1, filters=1024, l2_reg_scale=l2_reg)
+        concated1 = tf.concat([Utils.conv_transpose(
             conv5_2, filters=512, l2_reg_scale=l2_reg), conv4_2], axis=3)
 
-        conv_up1_1 = utils.conv(concated1, filters=512, l2_reg_scale=l2_reg)
-        conv_up1_2 = utils.conv(conv_up1_1, filters=512, l2_reg_scale=l2_reg)
-        concated2 = tf.concat([utils.conv_transpose(
+        conv_up1_1 = Utils.conv(concated1, filters=512, l2_reg_scale=l2_reg)
+        conv_up1_2 = Utils.conv(conv_up1_1, filters=512, l2_reg_scale=l2_reg)
+        concated2 = tf.concat([Utils.conv_transpose(
             conv_up1_2, filters=256, l2_reg_scale=l2_reg), conv3_2], axis=3)
 
-        conv_up2_1 = utils.conv(concated2, filters=256, l2_reg_scale=l2_reg)
-        conv_up2_2 = utils.conv(conv_up2_1, filters=256, l2_reg_scale=l2_reg)
-        concated3 = tf.concat([utils.conv_transpose(
+        conv_up2_1 = Utils.conv(concated2, filters=256, l2_reg_scale=l2_reg)
+        conv_up2_2 = Utils.conv(conv_up2_1, filters=256, l2_reg_scale=l2_reg)
+        concated3 = tf.concat([Utils.conv_transpose(
             conv_up2_2, filters=128, l2_reg_scale=l2_reg), conv2_2], axis=3)
 
-        conv_up3_1 = utils.conv(concated3, filters=128, l2_reg_scale=l2_reg)
-        conv_up3_2 = utils.conv(conv_up3_1, filters=128, l2_reg_scale=l2_reg)
-        concated4 = tf.concat([utils.conv_transpose(
+        conv_up3_1 = Utils.conv(concated3, filters=128, l2_reg_scale=l2_reg)
+        conv_up3_2 = Utils.conv(conv_up3_1, filters=128, l2_reg_scale=l2_reg)
+        concated4 = tf.concat([Utils.conv_transpose(
             conv_up3_2, filters=64, l2_reg_scale=l2_reg), conv1_2], axis=3)
 
-        conv_up4_1 = utils.conv(concated4, filters=64, l2_reg_scale=l2_reg)
-        conv_up4_2 = utils.conv(conv_up4_1, filters=64, l2_reg_scale=l2_reg)
-        outputs = utils.conv(
+        conv_up4_1 = Utils.conv(concated4, filters=64, l2_reg_scale=l2_reg)
+        conv_up4_2 = Utils.conv(conv_up4_1, filters=64, l2_reg_scale=l2_reg)
+        outputs = Utils.conv(
             conv_up4_2, filters=NUM_OF_CLASSES, kernel_size=[
                 1, 1], activation=None)
         annotation_pred = tf.argmax(outputs, dimension=3, name="prediction")
@@ -168,7 +184,7 @@ def train(loss_val, var_list, global_step):
     if FLAGS.debug:
         # print(len(var_list))
         for grad, var in grads:
-            utils.add_gradient_summary(grad, var)
+            Utils.add_gradient_summary(grad, var)
     return optimizer.apply_gradients(grads, global_step=global_step)
 
 
@@ -224,7 +240,7 @@ def main(argv=None):
     trainable_var = tf.trainable_variables()
     if FLAGS.debug:
         for var in trainable_var:
-            utils.add_to_regularization_and_summary(var)
+            Utils.add_to_regularization_and_summary(var)
 
     train_op = train(loss, trainable_var, net['global_step'])
 
@@ -232,29 +248,46 @@ def main(argv=None):
     summary_op = tf.summary.merge_all()
 
     print("Setting up image reader from ", FLAGS.data_dir, "...")
-    #train_records, valid_records = scene_parsing.read_dataset(FLAGS.data_dir)
-    #train_records, valid_records, test_records = fashion_parsing.read_dataset(FLAGS.data_dir)
-    train_records, valid_records = human_parsing.read_dataset(FLAGS.data_dir)
     print("data dir:", FLAGS.data_dir)
+
+    train_records, valid_records = fashion_parsing.read_dataset(FLAGS.data_dir)
+    test_records = None
+    if DATA_SET == "CFPD":
+        train_records, valid_records, test_records = ClothingParsing.read_dataset(
+            FLAGS.data_dir)
+        print("test_records length :", len(test_records))
+    if DATA_SET == "LIP":
+        train_records, valid_records = HumanParsing.read_dataset(
+            FLAGS.data_dir)
+
     print("train_records length :", len(train_records))
     print("valid_records length :", len(valid_records))
-    # print("test_records length :", len(test_records))
 
     print("Setting up dataset reader")
+    train_dataset_reader = None
+    validation_dataset_reader = None
+    test_dataset_reader = None
     image_options = {'resize': True, 'resize_size': IMAGE_SIZE}
+
     if FLAGS.mode == 'train':
-        train_dataset_reader = dataset.BatchDatset(
+        train_dataset_reader = DataSetReader.BatchDatset(
             train_records, image_options)
-        validation_dataset_reader = dataset.BatchDatset(
+        validation_dataset_reader = DataSetReader.BatchDatset(
             valid_records, image_options)
-        # test_dataset_reader = dataset.BatchDatset(test_records, image_options)
+        if DATA_SET == "CFPD":
+            test_dataset_reader = DataSetReader.BatchDatset(
+                test_records, image_options)
     if FLAGS.mode == 'visualize':
-        validation_dataset_reader = dataset.BatchDatset(
+        validation_dataset_reader = DataSetReader.BatchDatset(
             valid_records, image_options)
     if FLAGS.mode == 'test':
-	    validation_dataset_reader = dataset.BatchDatset(
-            valid_records, image_options)
-        # test_dataset_reader = dataset.BatchDatset(test_records, image_options)
+        if DATA_SET == "CFPD":
+            test_dataset_reader = DataSetReader.BatchDatset(
+                test_records, image_options)
+        else:
+            test_dataset_reader = DataSetReader.BatchDatset(
+                valid_records, image_options)
+            test_records = valid_records
 
     sess = tf.Session()
 
@@ -262,7 +295,7 @@ def main(argv=None):
     saver = tf.train.Saver()
     summary_writer = tf.summary.FileWriter(FLAGS.logs_dir, sess.graph)
 
-    # 5. paramter setup
+    # 5. parameter setup
     # 5.1 init params
     sess.run(tf.global_variables_initializer())
     # 5.2 restore params if possible
@@ -271,26 +304,28 @@ def main(argv=None):
         saver.restore(sess, ckpt.model_checkpoint_path)
         print("Model restored...")
 
-    # 6. train-mode
-    if FLAGS.mode == "train":
+        # 6. train-mode
+        if FLAGS.mode == "train":
 
-        fd.mode_train(sess, FLAGS, net, train_dataset_reader, validation_dataset_reader, train_records, pred_annotation,
-                      image, annotation, keep_probability, logits, train_op, loss, summary_op, summary_writer, saver, DISPLAY_STEP)
+            fd.mode_train(sess, FLAGS, net, train_dataset_reader, validation_dataset_reader, train_records,
+                          pred_annotation,
+                          image, annotation, keep_probability, logits, train_op, loss, summary_op, summary_writer,
+                          saver, DISPLAY_STEP)
 
-        fd.mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records,
-                     pred_annotation, image, annotation, keep_probability, logits, NUM_OF_CLASSES)
+            fd.mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records,
+                         pred_annotation, image, annotation, keep_probability, logits, NUM_OF_CLASSES)
 
-    # test-random-validation-data mode
-    elif FLAGS.mode == "visualize":
+        # test-random-validation-data mode
+        elif FLAGS.mode == "visualize":
 
-        fd.mode_visualize(sess, FLAGS, VIS_DIR, validation_dataset_reader,
-                          pred_annotation, image, annotation, keep_probability, NUM_OF_CLASSES)
+            fd.mode_visualize(sess, FLAGS, VIS_DIR, validation_dataset_reader,
+                              pred_annotation, image, annotation, keep_probability, NUM_OF_CLASSES)
 
-    # test-full-validation-dataset mode
-    elif FLAGS.mode == "test":  # heejune added
+        # test-full-validation-dataset mode
+        elif FLAGS.mode == "test":  # heejune added
 
-        fd.mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records,
-                     pred_annotation, image, annotation, keep_probability, logits, NUM_OF_CLASSES)
+            fd.mode_test(sess, FLAGS, TEST_DIR, test_dataset_reader, test_records,
+                         pred_annotation, image, annotation, keep_probability, logits, NUM_OF_CLASSES)
 
     sess.close()
 

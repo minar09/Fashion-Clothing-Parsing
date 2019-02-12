@@ -1,21 +1,12 @@
 from __future__ import print_function
-import time
+
 import function_definitions as fd
-import cv2
-import matplotlib.pyplot as plt
-from skimage.color import rgb2gray
-from skimage.color import gray2rgb
-from pydensecrf.utils import unary_from_labels, create_pairwise_bilateral, create_pairwise_gaussian, unary_from_softmax
-from skimage.io import imread, imsave
-import pydensecrf.densecrf as dcrf
-from six.moves import xrange
-import BatchDatsetReader as dataset
-import datetime
-import read_MITSceneParsingData as scene_parsing
-import read_CFPD_data as fashion_parsing
-import read_LIP_data as human_parsing
-import TensorflowUtils as utils
-from PIL import Image
+import BatchDatsetReader as DataSetReader
+import read_10k_data as fashion_parsing
+import read_CFPD_data as ClothingParsing
+import read_LIP_data as HumanParsing
+import TensorflowUtils as Utils
+
 import numpy as np
 import tensorflow as tf
 
@@ -24,14 +15,37 @@ import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 
+DATA_SET = "10k"
+# DATA_SET = "CFPD"
+# DATA_SET = "LIP"
+
 FLAGS = tf.flags.FLAGS
-tf.flags.DEFINE_integer("batch_size", "96", "batch size for training")
+tf.flags.DEFINE_integer("batch_size", "112", "batch size for training")
 tf.flags.DEFINE_integer(
     "training_epochs",
     "30",
     "number of epochs for training")
-tf.flags.DEFINE_string("logs_dir", "logs/FCN_LIP/", "path to logs directory")
-tf.flags.DEFINE_string("data_dir", "D:/Datasets/LIP/", "path to dataset")
+
+if DATA_SET == "10k":
+    tf.flags.DEFINE_string("logs_dir", "logs/FCN_10k/",
+                           "path to logs directory")
+if DATA_SET == "CFPD":
+    tf.flags.DEFINE_string("logs_dir", "logs/FCN_CFPD/",
+                           "path to logs directory")
+if DATA_SET == "LIP":
+    tf.flags.DEFINE_string("logs_dir", "logs/FCN_LIP/",
+                           "path to logs directory")
+
+if DATA_SET == "10k":
+    tf.flags.DEFINE_string(
+        "data_dir", "D:/Datasets/Dressup10k/", "path to dataset")
+if DATA_SET == "CFPD":
+    tf.flags.DEFINE_string(
+        "data_dir", "D:/Datasets/CFPD/", "path to dataset")
+if DATA_SET == "LIP":
+    tf.flags.DEFINE_string(
+        "data_dir", "D:/Datasets/LIP/", "path to dataset")
+
 tf.flags.DEFINE_float(
     "learning_rate",
     "1e-4",
@@ -39,15 +53,19 @@ tf.flags.DEFINE_float(
 tf.flags.DEFINE_string("model_dir", "Model_zoo/", "Path to vgg model mat")
 tf.flags.DEFINE_bool('debug', "False", "Debug mode: True/ False")
 tf.flags.DEFINE_string('mode', "train", "Mode train/ test/ visualize")
-#tf.flags.DEFINE_string('mode', "test", "Mode train/ test/ visualize")
-#tf.flags.DEFINE_string('mode', "visualize", "Mode train/ test/ visualize")
+# tf.flags.DEFINE_string('mode', "test", "Mode train/ test/ visualize")
+# tf.flags.DEFINE_string('mode', "visualize", "Mode train/ test/ visualize")
 
 MODEL_URL = 'http://www.vlfeat.org/matconvnet/models/beta16/imagenet-vgg-verydeep-19.mat'
 
 MAX_ITERATION = int(1e5 + 1001)
-# NUM_OF_CLASSES = 18  # Upper-lower cloth parsing # Dressup 10k
-# NUM_OF_CLASSES = 23  # Fashion parsing 23 # CFPD
-NUM_OF_CLASSES = 20  # human parsing # LIP
+
+NUM_OF_CLASSES = 18  # Upper-lower cloth parsing # Dressup 10k
+if DATA_SET == "CFPD":
+    NUM_OF_CLASSES = 23  # Fashion parsing 23 # CFPD
+if DATA_SET == "LIP":
+    NUM_OF_CLASSES = 20  # human parsing # LIP
+
 IMAGE_SIZE = 224
 DISPLAY_STEP = 300
 TEST_DIR = FLAGS.logs_dir + "TestImage/"
@@ -69,14 +87,14 @@ def inference(image, keep_prob):
     # 1. donwload VGG pretrained model from network if not did before
     #    model_data is dictionary for variables from matlab mat file
     print("setting up vgg initialized conv layers ...")
-    model_data = utils.get_model_data(FLAGS.model_dir, MODEL_URL)
+    model_data = Utils.get_model_data(FLAGS.model_dir, MODEL_URL)
 
     mean = model_data['normalization'][0][0][0]
     mean_pixel = np.mean(mean, axis=(0, 1))
 
     weights = np.squeeze(model_data['layers'])
 
-    processed_image = utils.process_image(image, mean_pixel)
+    processed_image = Utils.process_image(image, mean_pixel)
 
     # 2. construct model graph
     with tf.variable_scope("inference"):
@@ -84,44 +102,44 @@ def inference(image, keep_prob):
         image_net = fd.vgg_net(weights, processed_image)
         conv_final_layer = image_net["conv5_3"]
         #
-        pool5 = utils.max_pool_2x2(conv_final_layer)
+        pool5 = Utils.max_pool_2x2(conv_final_layer)
 
-        W6 = utils.weight_variable([7, 7, 512, 4096], name="W6")
-        b6 = utils.bias_variable([4096], name="b6")
-        conv6 = utils.conv2d_basic(pool5, W6, b6)
+        W6 = Utils.weight_variable([7, 7, 512, 4096], name="W6")
+        b6 = Utils.bias_variable([4096], name="b6")
+        conv6 = Utils.conv2d_basic(pool5, W6, b6)
         relu6 = tf.nn.relu(conv6, name="relu6")
         if FLAGS.debug:
-            utils.add_activation_summary(relu6)
+            Utils.add_activation_summary(relu6)
         relu_dropout6 = tf.nn.dropout(relu6, keep_prob=keep_prob)
 
-        W7 = utils.weight_variable([1, 1, 4096, 4096], name="W7")
-        b7 = utils.bias_variable([4096], name="b7")
-        conv7 = utils.conv2d_basic(relu_dropout6, W7, b7)
+        W7 = Utils.weight_variable([1, 1, 4096, 4096], name="W7")
+        b7 = Utils.bias_variable([4096], name="b7")
+        conv7 = Utils.conv2d_basic(relu_dropout6, W7, b7)
         relu7 = tf.nn.relu(conv7, name="relu7")
         if FLAGS.debug:
-            utils.add_activation_summary(relu7)
+            Utils.add_activation_summary(relu7)
         relu_dropout7 = tf.nn.dropout(relu7, keep_prob=keep_prob)
 
-        W8 = utils.weight_variable([1, 1, 4096, NUM_OF_CLASSES], name="W8")
-        b8 = utils.bias_variable([NUM_OF_CLASSES], name="b8")
-        conv8 = utils.conv2d_basic(relu_dropout7, W8, b8)
+        W8 = Utils.weight_variable([1, 1, 4096, NUM_OF_CLASSES], name="W8")
+        b8 = Utils.bias_variable([NUM_OF_CLASSES], name="b8")
+        conv8 = Utils.conv2d_basic(relu_dropout7, W8, b8)
         # annotation_pred1 = tf.argmax(conv8, dimension=3, name="prediction1")
 
         # now to upscale to actual image size
         deconv_shape1 = image_net["pool4"].get_shape()
-        W_t1 = utils.weight_variable(
+        W_t1 = Utils.weight_variable(
             [4, 4, deconv_shape1[3].value, NUM_OF_CLASSES], name="W_t1")
-        b_t1 = utils.bias_variable([deconv_shape1[3].value], name="b_t1")
-        conv_t1 = utils.conv2d_transpose_strided(
+        b_t1 = Utils.bias_variable([deconv_shape1[3].value], name="b_t1")
+        conv_t1 = Utils.conv2d_transpose_strided(
             conv8, W_t1, b_t1, output_shape=tf.shape(
                 image_net["pool4"]))
         fuse_1 = tf.add(conv_t1, image_net["pool4"], name="fuse_1")
 
         deconv_shape2 = image_net["pool3"].get_shape()
-        W_t2 = utils.weight_variable(
+        W_t2 = Utils.weight_variable(
             [4, 4, deconv_shape2[3].value, deconv_shape1[3].value], name="W_t2")
-        b_t2 = utils.bias_variable([deconv_shape2[3].value], name="b_t2")
-        conv_t2 = utils.conv2d_transpose_strided(
+        b_t2 = Utils.bias_variable([deconv_shape2[3].value], name="b_t2")
+        conv_t2 = Utils.conv2d_transpose_strided(
             fuse_1, W_t2, b_t2, output_shape=tf.shape(
                 image_net["pool3"]))
         fuse_2 = tf.add(conv_t2, image_net["pool3"], name="fuse_2")
@@ -129,10 +147,10 @@ def inference(image, keep_prob):
         shape = tf.shape(image)
         deconv_shape3 = tf.stack(
             [shape[0], shape[1], shape[2], NUM_OF_CLASSES])
-        W_t3 = utils.weight_variable(
+        W_t3 = Utils.weight_variable(
             [16, 16, NUM_OF_CLASSES, deconv_shape2[3].value], name="W_t3")
-        b_t3 = utils.bias_variable([NUM_OF_CLASSES], name="b_t3")
-        conv_t3 = utils.conv2d_transpose_strided(
+        b_t3 = Utils.bias_variable([NUM_OF_CLASSES], name="b_t3")
+        conv_t3 = Utils.conv2d_transpose_strided(
             fuse_2, W_t3, b_t3, output_shape=deconv_shape3, stride=8)
 
         # prob = tf.nn.softmax(conv_t3, axis =3)
@@ -153,7 +171,7 @@ def train(loss_val, var_list, global_step):
     if FLAGS.debug:
         # print(len(var_list))
         for grad, var in grads:
-            utils.add_gradient_summary(grad, var)
+            Utils.add_gradient_summary(grad, var)
     return optimizer.apply_gradients(grads, global_step=global_step)
 
 
@@ -177,7 +195,7 @@ def main(argv=None):
             IMAGE_SIZE,
             1),
         name="annotation")
-    #global_step = tf.Variable(0, trainable=False, name='global_step')
+    # global_step = tf.Variable(0, trainable=False, name='global_step')
 
     # 2. construct inference network
     pred_annotation, logits, net = inference(image, keep_probability)
@@ -210,38 +228,53 @@ def main(argv=None):
     trainable_var = tf.trainable_variables()
     if FLAGS.debug:
         for var in trainable_var:
-            utils.add_to_regularization_and_summary(var)
+            Utils.add_to_regularization_and_summary(var)
     train_op = train(loss, trainable_var, net['global_step'])
 
     print("Setting up summary op...")
     summary_op = tf.summary.merge_all()
 
     print("Setting up image reader from ", FLAGS.data_dir, "...")
-    # train_records, valid_records = scene_parsing.read_dataset(FLAGS.data_dir)
-    # train_records, valid_records, test_records = fashion_parsing.read_dataset(FLAGS.data_dir)
-    train_records, valid_records = human_parsing.read_dataset(FLAGS.data_dir)
     print("data dir:", FLAGS.data_dir)
+
+    train_records, valid_records = fashion_parsing.read_dataset(FLAGS.data_dir)
+    test_records = None
+    if DATA_SET == "CFPD":
+        train_records, valid_records, test_records = ClothingParsing.read_dataset(
+            FLAGS.data_dir)
+        print("test_records length :", len(test_records))
+    if DATA_SET == "LIP":
+        train_records, valid_records = HumanParsing.read_dataset(
+            FLAGS.data_dir)
+
     print("train_records length :", len(train_records))
     print("valid_records length :", len(valid_records))
-    #print("test_records length :", len(test_records))
 
     print("Setting up dataset reader")
+    train_dataset_reader = None
+    validation_dataset_reader = None
+    test_dataset_reader = None
     image_options = {'resize': True, 'resize_size': IMAGE_SIZE}
+
     if FLAGS.mode == 'train':
-        train_dataset_reader = dataset.BatchDatset(
+        train_dataset_reader = DataSetReader.BatchDatset(
             train_records, image_options)
-        validation_dataset_reader = dataset.BatchDatset(
+        validation_dataset_reader = DataSetReader.BatchDatset(
             valid_records, image_options)
-        # test_dataset_reader = dataset.BatchDatset(
-            # test_records, image_options)
+        if DATA_SET == "CFPD":
+            test_dataset_reader = DataSetReader.BatchDatset(
+                test_records, image_options)
     if FLAGS.mode == 'visualize':
-        validation_dataset_reader = dataset.BatchDatset(
+        validation_dataset_reader = DataSetReader.BatchDatset(
             valid_records, image_options)
     if FLAGS.mode == 'test':
-        validation_dataset_reader = dataset.BatchDatset(
-            valid_records, image_options)
-        #test_dataset_reader = dataset.BatchDatset(
-            #test_records, image_options)
+        if DATA_SET == "CFPD":
+            test_dataset_reader = DataSetReader.BatchDatset(
+                test_records, image_options)
+        else:
+            test_dataset_reader = DataSetReader.BatchDatset(
+                valid_records, image_options)
+            test_records = valid_records
 
     sess = tf.Session()
 
@@ -249,7 +282,7 @@ def main(argv=None):
     saver = tf.train.Saver()
     summary_writer = tf.summary.FileWriter(FLAGS.logs_dir, sess.graph)
 
-    # 5. paramter setup
+    # 5. parameter setup
     # 5.1 init params
     sess.run(tf.global_variables_initializer())
     # 5.2 restore params if possible
@@ -276,7 +309,7 @@ def main(argv=None):
     # test-full-validation-dataset mode
     elif FLAGS.mode == "test":  # heejune added
 
-        fd.mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records,
+        fd.mode_test(sess, FLAGS, TEST_DIR, test_dataset_reader, test_records,
                      pred_annotation, image, annotation, keep_probability, logits, NUM_OF_CLASSES)
 
     sess.close()

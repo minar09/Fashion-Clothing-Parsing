@@ -38,7 +38,7 @@ def crf(fn_im, fn_anno, fn_output, NUM_OF_CLASSESS, use_2d=True):
     ### Read images and annotation ###
     ##################################
     img = imread(fn_im)
-    #print(fn_anno.shape)
+    # print(fn_anno.shape)
 
     # Convert the annotation's RGB color to a single 32-bit integer color 0xBBGGRR
     anno_rgb = imread(fn_anno).astype(np.uint32)
@@ -55,9 +55,9 @@ def crf(fn_im, fn_anno, fn_output, NUM_OF_CLASSESS, use_2d=True):
     # HAS_UNK = 0 in colors
     HAS_UNK = False
     # if HAS_UNK:
-        #print("Found a full-black pixel in annotation image, assuming it means 'unknown' label, and will thus not be present in the output!")
-        #print("If 0 is an actual label for you, consider writing your own code, or simply giving your labels only non-zero values.")
-        #colors = colors[1:]
+    #print("Found a full-black pixel in annotation image, assuming it means 'unknown' label, and will thus not be present in the output!")
+    #print("If 0 is an actual label for you, consider writing your own code, or simply giving your labels only non-zero values.")
+    #colors = colors[1:]
     # else:
     #    print("No single full-black pixel found in annotation image. Assuming there's no 'unknown' label!")
 
@@ -88,14 +88,14 @@ def crf(fn_im, fn_anno, fn_output, NUM_OF_CLASSESS, use_2d=True):
         # get unary potentials (neg log probability)
         U = unary_from_labels(
             labels, n_labels, gt_prob=0.7, zero_unsure=HAS_UNK)
-            
+
         # get unary potentials (neg log probability)
         # processed_probabilities = fn_anno
         # softmax = processed_probabilities.transpose((2, 0, 1))
         # print(softmax.shape)
         # U = unary_from_softmax(softmax, scale=None, clip=None)
         # U = np.ascontiguousarray(U)
-            
+
         d.setUnaryEnergy(U)
 
         # This adds the color-independent term, features are the locations only.
@@ -140,25 +140,25 @@ def crf(fn_im, fn_anno, fn_output, NUM_OF_CLASSESS, use_2d=True):
 
     # Find out the most probable class for each pixel.
     MAP = np.argmax(Q, axis=0)
-    #print(MAP.shape)
+    # print(MAP.shape)
     crfoutput = MAP.reshape((img.shape[0], img.shape[1]))
-    #print(crfoutput.shape)
-    #print(np.unique(crfoutput))
+    # print(crfoutput.shape)
+    # print(np.unique(crfoutput))
 
     # Convert the MAP (labels) back to the corresponding colors and save the image.
     # Note that there is no "unknown" here anymore, no matter what we had at first.
     MAP = colorize[MAP, :]
-    #print(MAP.shape)
+    # print(MAP.shape)
     imwrite(fn_output, MAP.reshape(img.shape))
     crfimage = MAP.reshape(img.shape)
-    #print(crfimage.shape)
+    # print(crfimage.shape)
 
     # Just randomly manually run inference iterations
     # Q, tmp1, tmp2 = d.startInference()
     # for i in range(5):
     # print("KL-divergence at {}: {}".format(i, d.klDivergence(Q)))
     # d.stepInference(Q, tmp1, tmp2)
-    
+
     return crfimage, crfoutput
 
 

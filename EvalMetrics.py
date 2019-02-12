@@ -12,6 +12,8 @@ np.seterr(divide='ignore', invalid='ignore')
 
 
 """LIP functions"""
+
+
 def fast_hist(a, b, n):
     k = (a >= 0) & (a < n)
     return np.bincount(n * a[k].astype(int) + b[k], minlength=n**2).reshape(n, n)
@@ -40,15 +42,23 @@ def compute_hist(images, labels, n_cl=18):
 
 def show_result(hist, n_cl=18):
 
-    #classes = ['background', 'hat', 'hair', 'sunglasses', 'upperclothes', 'skirt', 'pants', 'dress',
-               #'belt', 'leftShoe', 'rightShoe', 'face', 'leftLeg', 'rightLeg', 'leftArm', 'rightArm', 'bag', 'scarf']
-    #classes = ['bk', 'T-shirt', 'bag', 'belt', 'blazer', 'blouse', 'coat', 'dress', 'face', 'hair',
-               #'hat', 'jeans', 'legging', 'pants', 'scarf', 'shoe', 'shorts', 'skin', 'skirt', 
-               #'socks', 'stocking', 'sunglass', 'sweater']
-    classes = ['background', 'hat', 'hair', 'glove', 'sunglasses', 'upperclothes',
-               'dress', 'coat', 'socks', 'pants', 'jumpsuits', 'scarf', 'skirt',
-               'face', 'leftArm', 'rightArm', 'leftLeg', 'rightLeg', 'leftShoe',
-               'rightShoe']
+    # Dressup 10K, 18 classes
+    classes = ['background', 'hat', 'hair', 'sunglasses', 'upperclothes', 'skirt', 'pants', 'dress',
+               'belt', 'leftShoe', 'rightShoe', 'face', 'leftLeg', 'rightLeg', 'leftArm', 'rightArm', 'bag', 'scarf']
+
+    # CFPD, 23 classes
+    if n_cl == 23:
+        classes = ['bk', 'T-shirt', 'bag', 'belt', 'blazer', 'blouse', 'coat', 'dress', 'face', 'hair',
+                   'hat', 'jeans', 'legging', 'pants', 'scarf', 'shoe', 'shorts', 'skin', 'skirt',
+                   'socks', 'stocking', 'sunglass', 'sweater']
+
+    # LIP, 20 classes
+    if n_cl == 20:
+        classes = ['background', 'hat', 'hair', 'glove', 'sunglasses', 'upperclothes',
+                   'dress', 'coat', 'socks', 'pants', 'jumpsuits', 'scarf', 'skirt',
+                   'face', 'leftArm', 'rightArm', 'leftLeg', 'rightLeg', 'leftShoe',
+                   'rightShoe']
+
     # num of correct pixels
     num_cor_pix = np.diag(hist)
     # num of gt pixels
@@ -87,7 +97,7 @@ def show_result(hist, n_cl=18):
     calculate evaluation metrics
 """
 
-    
+
 def _calc_eval_metrics(gtimage, predimage, num_classes):
 
     pixel_accuracy_ = 0
@@ -168,8 +178,8 @@ def _calc_eval_metrics(gtimage, predimage, num_classes):
         print(err)
 
     return pixel_accuracy_, mean_accuracy, meanIoU, meanFrqWIoU
-    
-    
+
+
 """
     calculate eval metrics from confusion matrix
 """
@@ -178,69 +188,75 @@ def _calc_eval_metrics(gtimage, predimage, num_classes):
 def _calc_eval_metrics_from_cross_matrix(gtimage, predimage, num_classes):
     cross_mat = _calcCrossMat(gtimage, predimage, num_classes)
     #cross_mat = fast_hist(gtimage, predimage, num_classes)
-    
+
     class_intersections = np.diag(cross_mat)
     total_intersections = np.nansum(class_intersections)
-    
+
     gt_pixels = np.sum(cross_mat, axis=1)
     pred_pixels = np.sum(cross_mat, axis=0)
     total_pixels = np.sum(cross_mat)
-    
+
     # mean accuracy, mean IoU, frequency-weighted IoU
     class_accuracies = []
     IoUs = []
     FWIoUs = []
-    
+
     for i in range(len(class_intersections)):
         try:
             acc = (float)(class_intersections[i] / gt_pixels[i])
             class_accuracies.append(acc)
         except:
             class_accuracies.append(0)
-        
+
         try:
-            iu = (float)(class_intersections[i] / (gt_pixels[i] + pred_pixels[i] - class_intersections[i]))
+            iu = (float)(
+                class_intersections[i] / (gt_pixels[i] + pred_pixels[i] - class_intersections[i]))
             IoUs.append(iu)
         except:
             IoUs.append(0)
-        
+
         try:
-            fwiu = (float)((class_intersections[i] * gt_pixels[i]) / (gt_pixels[i] + pred_pixels[i] - class_intersections[i]))
+            fwiu = (float)((class_intersections[i] * gt_pixels[i]) / (
+                gt_pixels[i] + pred_pixels[i] - class_intersections[i]))
             FWIoUs.append(fwiu)
         except:
             FWIoUs.append(0)
-        
-    pixel_accuracy_ = (float)(total_intersections / total_pixels)    # pixel accuracy
-    mean_accuracy = (float)(np.nansum(class_accuracies) / num_classes)    # mean accuracy
+
+    pixel_accuracy_ = (float)(total_intersections /
+                              total_pixels)    # pixel accuracy
+    mean_accuracy = (float)(np.nansum(class_accuracies) /
+                            num_classes)    # mean accuracy
     meanIoU = (float)(np.nansum(IoUs) / num_classes)    # mean IoU
-    meanFrqWIoU = (float)(np.nansum(FWIoUs) / total_pixels)    # Total frequency-weighted IoU
+    # Total frequency-weighted IoU
+    meanFrqWIoU = (float)(np.nansum(FWIoUs) / total_pixels)
 
     return pixel_accuracy_, mean_accuracy, meanIoU, meanFrqWIoU, cross_mat
 
 
 def _calc_eval_metrics_from_confusion_matrix(cross_mat, num_classes):
-    
+
     class_intersections = np.diag(cross_mat)
     total_intersections = np.nansum(class_intersections)
-    
+
     gt_pixels = np.sum(cross_mat, axis=1)
     pred_pixels = np.sum(cross_mat, axis=0)
     total_pixels = np.sum(cross_mat)
-    
+
     # mean accuracy, mean IoU, frequency-weighted IoU
     class_accuracies = []
     IoUs = []
     FWIoUs = []
-    
+
     for i in range(len(class_intersections)):
         try:
             acc = (float)(class_intersections[i] / gt_pixels[i])
             class_accuracies.append(acc)
         except:
             class_accuracies.append(0)
-        
+
         try:
-            iu = (float)(class_intersections[i] / (gt_pixels[i] + pred_pixels[i] - class_intersections[i]))
+            iu = (float)(
+                class_intersections[i] / (gt_pixels[i] + pred_pixels[i] - class_intersections[i]))
             IoUs.append(iu)
 
             fwiu = (float)((gt_pixels[i] * iu) / total_pixels)
@@ -248,9 +264,11 @@ def _calc_eval_metrics_from_confusion_matrix(cross_mat, num_classes):
         except:
             IoUs.append(0)
             FWIoUs.append(0)
-        
-    pixel_accuracy_ = (float)(total_intersections / total_pixels)    # pixel accuracy
-    mean_accuracy = (float)(np.nansum(class_accuracies) / num_classes)    # mean accuracy
+
+    pixel_accuracy_ = (float)(total_intersections /
+                              total_pixels)    # pixel accuracy
+    mean_accuracy = (float)(np.nansum(class_accuracies) /
+                            num_classes)    # mean accuracy
     meanIoU = (float)(np.nansum(IoUs) / num_classes)    # mean IoU
     meanFrqWIoU = np.nansum(FWIoUs)    # Total frequency-weighted IoU
 

@@ -305,7 +305,7 @@ def final_crf(original_image, annotated_image, NUM_OF_CLASSESS, use_2d=True):
     plt.show()
 
     return output
-    
+
 
 def _calcCrossMat(gtimage, predimage, num_classes):
     crossMat = []
@@ -327,8 +327,8 @@ def _calcCrossMat(gtimage, predimage, num_classes):
                 crossMat[gtlabel][predlabel] = crossMat[gtlabel][predlabel] + 1
 
     return crossMat
-    
-    
+
+
 def _calc_eval_metrics(gtimage, predimage, num_classes):
 
     pixel_accuracy_ = 0
@@ -443,12 +443,13 @@ def _calc_eval_metrics(gtimage, predimage, num_classes):
 # anno = np.zeros((224, 224, 23))
 # output = dense_crf(input, anno, 23)
 # output = crf(input, anno, 23)
-_, crfoutput = inference.crf("inp.png", "pred.png", "output.png", 23, use_2d=True)
+_, crfoutput = inference.crf(
+    "inp.png", "pred.png", "output.png", 23, use_2d=True)
 #crfoutput = misc.imread("output.png")
 #crfoutput = misc.imresize(crfoutput, [224, 224])
 print(crfoutput.shape)
 #crfoutput = np.argmax(crfoutput, axis=2)
-#print(np.array([crfoutput]).astype(np.uint8))
+# print(np.array([crfoutput]).astype(np.uint8))
 #crfoutput = cv2.normalize(crfoutput, None, 0, 255, cv2.NORM_MINMAX)
 print(np.unique(crfoutput))
 gtimage = misc.imread("pred.png")
