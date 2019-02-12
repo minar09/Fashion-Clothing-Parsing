@@ -19,10 +19,10 @@ DATA_SET = "10k"
 # DATA_SET = "LIP"
 
 FLAGS = tf.flags.FLAGS
-tf.flags.DEFINE_integer("batch_size", "42", "batch size for training")
+tf.flags.DEFINE_integer("batch_size", "40", "batch size for training")
 tf.flags.DEFINE_integer(
     "training_epochs",
-    "30",
+    "50",
     "number of epochs for training")
 
 if DATA_SET == "10k":
@@ -304,28 +304,28 @@ def main(argv=None):
         saver.restore(sess, ckpt.model_checkpoint_path)
         print("Model restored...")
 
-        # 6. train-mode
-        if FLAGS.mode == "train":
+    # 6. train-mode
+    if FLAGS.mode == "train":
 
-            fd.mode_train(sess, FLAGS, net, train_dataset_reader, validation_dataset_reader, train_records,
-                          pred_annotation,
-                          image, annotation, keep_probability, logits, train_op, loss, summary_op, summary_writer,
-                          saver, DISPLAY_STEP)
+        fd.mode_train(sess, FLAGS, net, train_dataset_reader, validation_dataset_reader, train_records,
+                      pred_annotation,
+                      image, annotation, keep_probability, logits, train_op, loss, summary_op, summary_writer,
+                      saver, DISPLAY_STEP)
 
-            fd.mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records,
-                         pred_annotation, image, annotation, keep_probability, logits, NUM_OF_CLASSES)
+        fd.mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records,
+                     pred_annotation, image, annotation, keep_probability, logits, NUM_OF_CLASSES)
 
-        # test-random-validation-data mode
-        elif FLAGS.mode == "visualize":
+    # test-random-validation-data mode
+    elif FLAGS.mode == "visualize":
 
-            fd.mode_visualize(sess, FLAGS, VIS_DIR, validation_dataset_reader,
-                              pred_annotation, image, annotation, keep_probability, NUM_OF_CLASSES)
+        fd.mode_visualize(sess, FLAGS, VIS_DIR, validation_dataset_reader,
+                          pred_annotation, image, annotation, keep_probability, NUM_OF_CLASSES)
 
-        # test-full-validation-dataset mode
-        elif FLAGS.mode == "test":  # heejune added
+    # test-full-validation-dataset mode
+    elif FLAGS.mode == "test":  # heejune added
 
-            fd.mode_test(sess, FLAGS, TEST_DIR, test_dataset_reader, test_records,
-                         pred_annotation, image, annotation, keep_probability, logits, NUM_OF_CLASSES)
+        fd.mode_test(sess, FLAGS, TEST_DIR, test_dataset_reader, test_records,
+                     pred_annotation, image, annotation, keep_probability, logits, NUM_OF_CLASSES)
 
     sess.close()
 

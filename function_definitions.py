@@ -140,52 +140,6 @@ def mode_visualize(sess, FLAGS, TEST_DIR, validation_dataset_reader, pred_annota
     EvalMetrics.show_result(crf_total_cm, NUM_OF_CLASSES)
 
 
-def mode_train_encoder(sess, FLAGS, net, train_records, pred_annotation, image, keep_probability, saver, loss_encoder, train_encoder_op, label, train_encoder_dataset_reader, validation_encoder_dataset_reader, DISPLAY_STEP=300):
-    print(">>>>>>>>>>>>>>>>Train Encoder mode")
-    start = time.time()
-
-    # Start encoder training
-
-    for epoch in range(10):
-
-        # Training
-        for batch in range(round(train_encoder_dataset_reader.get_num_of_records() // FLAGS.batch_size)):
-            train_images, train_labels = train_encoder_dataset_reader.next_encoder_batch(
-                FLAGS.batch_size)
-
-            feed_dict = {
-                image: train_images,
-                label: train_labels,
-                keep_probability: 0.50}
-
-            sess.run(train_encoder_op, feed_dict=feed_dict)
-
-            if batch % 10 == 0:
-                encoder_loss = sess.run(
-                    loss_encoder, feed_dict=feed_dict)
-                print("Encoder training - Epoch:%d, batch: %d, Training Loss:%g" %
-                      (epoch, batch, encoder_loss))
-
-        # Validation
-        for batch in range(round(validation_encoder_dataset_reader.get_num_of_records() // FLAGS.batch_size)):
-            valid_images, valid_labels = validation_encoder_dataset_reader.next_encoder_batch(
-                FLAGS.batch_size)
-
-            feed_dict = {
-                image: valid_images,
-                label: valid_labels,
-                keep_probability: 1.00}
-
-            encoder_loss = sess.run(loss_encoder, feed_dict=feed_dict)
-            print("Encoder training - Epoch:%d, batch: %d, Validation Loss:%g" %
-                  (epoch, batch, encoder_loss))
-
-    saver.save(
-        sess,
-        FLAGS.logs_dir +
-        "encoder/model.ckpt")
-
-
 def mode_train(sess, FLAGS, net, train_dataset_reader, validation_dataset_reader, train_records, pred_annotation, image, annotation, keep_probability, logits, train_op, loss, summary_op, summary_writer, saver, DISPLAY_STEP=300):
     print(">>>>>>>>>>>>>>>>Train mode")
     start = time.time()

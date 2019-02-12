@@ -23,7 +23,7 @@ FLAGS = tf.flags.FLAGS
 tf.flags.DEFINE_integer("batch_size", "112", "batch size for training")
 tf.flags.DEFINE_integer(
     "training_epochs",
-    "30",
+    "50",
     "number of epochs for training")
 
 if DATA_SET == "10k":
@@ -283,8 +283,10 @@ def main(argv=None):
     summary_writer = tf.summary.FileWriter(FLAGS.logs_dir, sess.graph)
 
     # 5. parameter setup
+
     # 5.1 init params
     sess.run(tf.global_variables_initializer())
+
     # 5.2 restore params if possible
     ckpt = tf.train.get_checkpoint_state(FLAGS.logs_dir)
     if ckpt and ckpt.model_checkpoint_path:

@@ -1,9 +1,7 @@
-import TensorflowUtils as utils
+
 from PIL import Image
 import numpy as np
-import tensorflow as tf
-import time
-import sklearn.metrics
+from tqdm import tqdm
 
 # Hide the warning messages about CPU/GPU, invalid error
 import os
