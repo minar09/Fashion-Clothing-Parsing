@@ -9,6 +9,8 @@ import numpy as np
 from tqdm import tqdm
 import os
 import h5py
+import pandas as pd
+
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 # from FCN, which trained on PASCAL VOC 2011
@@ -21,7 +23,7 @@ def read_dataset(data_dir):
     # 'filename': filename}
 
     training_records = []
-    traindir = "E:/Dataset/CFPD/trainimages/"
+    traindir = "D:/Datasets/CFPD/trainimages/"
     print("## Training dir:", traindir)
     for filename in glob.glob(traindir + '*.jpg'):  # assuming jpg files
         record = {'image': None, 'annotation': None, 'filename': None}
@@ -34,7 +36,7 @@ def read_dataset(data_dir):
         training_records.append(record)
 
     validation_records = []
-    validationdir = "E:/Dataset/CFPD/valimages/"
+    validationdir = "D:/Datasets/CFPD/valimages/"
     print("## Validation dir:", validationdir)
     for filename in glob.glob(
             validationdir + '*.jpg'):  # assuming jpg files
@@ -48,7 +50,7 @@ def read_dataset(data_dir):
         validation_records.append(record)
 
     testing_records = []
-    testdir = "E:/Dataset/CFPD/testimages/"
+    testdir = "D:/Datasets/CFPD/testimages/"
     print("## Testing dir:", testdir)
     for filename in glob.glob(
             testdir + '*.jpg'):  # assuming jpg files
@@ -72,7 +74,7 @@ def read_dataset_from_mat_file(data_dir):
     testing_records = []
     all_records = []
 
-    data_dir = "E:/Dataset/CFPD/"
+    data_dir = "D:/Datasets/CFPD/"
     image_dir = data_dir + "image/"
     annotation_file_path = data_dir + "fashion_parsing_data.mat"
 
@@ -121,11 +123,8 @@ def read_mat(annotation_file_path):
         # ['category_label', 'color_label', 'img_name', 'segmentation']
 
         for each in tqdm(fashion_data):
-            temp = []
-            temp.append(hdf5_to_list(file[each[0]]['category_label']))
-            temp.append(hdf5_to_list(file[each[0]]['color_label']))
-            temp.append(hdf5_to_list(file[each[0]]['img_name']))
-            temp.append(hdf5_to_list(file[each[0]]['segmentation']))
+            temp = [hdf5_to_list(file[each[0]]['category_label']), hdf5_to_list(file[each[0]]['color_label']),
+                    hdf5_to_list(file[each[0]]['img_name']), hdf5_to_list(file[each[0]]['segmentation'])]
             fashion_dataset.append(temp)
 
     return fashion_dataset
@@ -133,7 +132,7 @@ def read_mat(annotation_file_path):
 
 def hdf5_to_list(data):
     x = data[:]
-    #x = x.tolist()
+    # x = x.tolist()
     return x
 
 

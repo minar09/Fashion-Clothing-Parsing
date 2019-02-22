@@ -14,34 +14,42 @@ import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 
-DATA_SET = "10k"
-# DATA_SET = "CFPD"
+# DATA_SET = "10k"
+DATA_SET = "CFPD"
 # DATA_SET = "LIP"
 
 FLAGS = tf.flags.FLAGS
-tf.flags.DEFINE_integer("batch_size", "40", "batch size for training")
-tf.flags.DEFINE_integer(
-    "training_epochs",
-    "50",
-    "number of epochs for training")
 
 if DATA_SET == "10k":
+    tf.flags.DEFINE_integer("batch_size", "40", "batch size for training")        
+    tf.flags.DEFINE_integer(
+        "training_epochs",
+        "50",
+        "number of epochs for training")
     tf.flags.DEFINE_string("logs_dir", "logs/UNet_10k/",
                            "path to logs directory")
-if DATA_SET == "CFPD":
-    tf.flags.DEFINE_string("logs_dir", "logs/UNet_CFPD/",
-                           "path to logs directory")
-if DATA_SET == "LIP":
-    tf.flags.DEFINE_string("logs_dir", "logs/UNet_LIP/",
-                           "path to logs directory")
-
-if DATA_SET == "10k":
     tf.flags.DEFINE_string(
         "data_dir", "D:/Datasets/Dressup10k/", "path to dataset")
+
 if DATA_SET == "CFPD":
+    tf.flags.DEFINE_integer("batch_size", "38", "batch size for training")        
+    tf.flags.DEFINE_integer(
+        "training_epochs",
+        "150",
+        "number of epochs for training")
+    tf.flags.DEFINE_string("logs_dir", "logs/UNet_CFPD/",
+                           "path to logs directory")
     tf.flags.DEFINE_string(
         "data_dir", "D:/Datasets/CFPD/", "path to dataset")
+
 if DATA_SET == "LIP":
+    tf.flags.DEFINE_integer("batch_size", "40", "batch size for training")        
+    tf.flags.DEFINE_integer(
+        "training_epochs",
+        "30",
+        "number of epochs for training")
+    tf.flags.DEFINE_string("logs_dir", "logs/UNet_LIP/",
+                           "path to logs directory")
     tf.flags.DEFINE_string(
         "data_dir", "D:/Datasets/LIP/", "path to dataset")
 
@@ -312,7 +320,7 @@ def main(argv=None):
                       image, annotation, keep_probability, logits, train_op, loss, summary_op, summary_writer,
                       saver, DISPLAY_STEP)
 
-        fd.mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records,
+        fd.mode_test(sess, FLAGS, TEST_DIR, test_dataset_reader, test_records,
                      pred_annotation, image, annotation, keep_probability, logits, NUM_OF_CLASSES)
 
     # test-random-validation-data mode
