@@ -21,7 +21,7 @@ DATA_SET = "CFPD"
 FLAGS = tf.flags.FLAGS
 
 if DATA_SET == "10k":
-    tf.flags.DEFINE_integer("batch_size", "40", "batch size for training")        
+    tf.flags.DEFINE_integer("batch_size", "40", "batch size for training")
     tf.flags.DEFINE_integer(
         "training_epochs",
         "50",
@@ -32,10 +32,10 @@ if DATA_SET == "10k":
         "data_dir", "D:/Datasets/Dressup10k/", "path to dataset")
 
 if DATA_SET == "CFPD":
-    tf.flags.DEFINE_integer("batch_size", "38", "batch size for training")        
+    tf.flags.DEFINE_integer("batch_size", "38", "batch size for training")
     tf.flags.DEFINE_integer(
         "training_epochs",
-        "150",
+        "70",
         "number of epochs for training")
     tf.flags.DEFINE_string("logs_dir", "logs/UNet_CFPD/",
                            "path to logs directory")
@@ -43,7 +43,7 @@ if DATA_SET == "CFPD":
         "data_dir", "D:/Datasets/CFPD/", "path to dataset")
 
 if DATA_SET == "LIP":
-    tf.flags.DEFINE_integer("batch_size", "40", "batch size for training")        
+    tf.flags.DEFINE_integer("batch_size", "40", "batch size for training")
     tf.flags.DEFINE_integer(
         "training_epochs",
         "30",
@@ -66,13 +66,15 @@ tf.flags.DEFINE_string('mode', "train", "Mode train/ test/ visualize")
 MAX_ITERATION = int(1e5 + 1001)
 
 NUM_OF_CLASSES = 18  # Upper-lower cloth parsing # Dressup 10k
+DISPLAY_STEP = 300
+
 if DATA_SET == "CFPD":
     NUM_OF_CLASSES = 23  # Fashion parsing 23 # CFPD
+
 if DATA_SET == "LIP":
     NUM_OF_CLASSES = 20  # human parsing # LIP
 
 IMAGE_SIZE = 224
-DISPLAY_STEP = 300
 TEST_DIR = FLAGS.logs_dir + "TestImage/"
 VIS_DIR = FLAGS.logs_dir + "VisImage/"
 

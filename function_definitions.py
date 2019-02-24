@@ -140,7 +140,7 @@ def mode_visualize(sess, FLAGS, TEST_DIR, validation_dataset_reader, pred_annota
     EvalMetrics.show_result(crf_total_cm, NUM_OF_CLASSES)
 
 
-def mode_train(sess, FLAGS, net, train_dataset_reader, validation_dataset_reader, train_records, pred_annotation, image, annotation, keep_probability, logits, train_op, loss, summary_op, summary_writer, saver, DISPLAY_STEP=300):
+def mode_train(sess, FLAGS, net, train_dataset_reader, validation_dataset_reader, train_records, pred_annotation, image, annotation, keep_probability, logits, train_op, loss, summary_op, summary_writer, saver, display_step=300):
     print(">>>>>>>>>>>>>>>>Train mode")
     start = time.time()
 
@@ -152,23 +152,22 @@ def mode_train(sess, FLAGS, net, train_dataset_reader, validation_dataset_reader
 
     global_step = sess.run(net['global_step'])
     global_step = 0
-    MAX_ITERATION = round(
+    max_iteration = round(
         (train_dataset_reader.get_num_of_records() //
          FLAGS.batch_size) *
         FLAGS.training_epochs)
-    #DISPLAY_STEP = round(MAX_ITERATION // FLAGS.training_epochs)
+    display_step = round(
+        train_dataset_reader.get_num_of_records() // FLAGS.batch_size)
     print(
         "No. of maximum steps:",
-        MAX_ITERATION,
+        max_iteration,
         " Training epochs:",
         FLAGS.training_epochs)
 
-    for itr in xrange(global_step, MAX_ITERATION):
+    for itr in xrange(global_step, max_iteration):
         # 6.1 load train and GT images
         train_images, train_annotations = train_dataset_reader.next_batch(
             FLAGS.batch_size)
-        #print("train_image:", train_images.shape)
-        #print("annotation :", train_annotations.shape)
 
         feed_dict = {
             image: train_images,
@@ -183,10 +182,10 @@ def mode_train(sess, FLAGS, net, train_dataset_reader, validation_dataset_reader
                 [loss, summary_op], feed_dict=feed_dict)
             print("Step: %d, Train_loss:%g" % (itr, train_loss))
             summary_writer.add_summary(summary_str, itr)
-            if itr % DISPLAY_STEP == 0 and itr != 0:
+            if itr % display_step == 0 and itr != 0:
                 lo.append(train_loss)
 
-        if itr % DISPLAY_STEP == 0 and itr != 0:
+        if itr % display_step == 0 and itr != 0:
             valid_images, valid_annotations = validation_dataset_reader.next_batch(
                 FLAGS.batch_size)
             valid_loss = sess.run(
