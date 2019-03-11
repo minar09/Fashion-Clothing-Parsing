@@ -28,14 +28,14 @@ class BatchDatset:
         print("Initializing Batch Dataset Reader, It may take minutes...")
         print(image_options)
         self.files = records_list
-        #print("files:", self.files)
+        # print("files:", self.files)
         self.image_options = image_options
         self._read_images()
 
     def _read_images(self):
         # 1.
         self.__channels = True
-        #self.images = np.array([self._transform(filename['image']) for filename in self.files])
+        # self.images = np.array([self._transform(filename['image']) for filename in self.files])
         # to display the progress info to users
         self.images = np.array([self._transform(filename['image'])
                                 for filename in tqdm(self.files)])
