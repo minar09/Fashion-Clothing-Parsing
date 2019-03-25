@@ -1,5 +1,5 @@
 """
-Adapted from the inference.py to demonstate the usage of the util functions.
+Adapted from the denseCRF.py to demonstate the usage of the util functions.
 """
 
 import sys

@@ -13,20 +13,18 @@ def main():
 
 def init_path():
 
-    val_output_dir = 'logs/UNet_CFPD/pred/'
-    val_label_dir = 'logs/UNet_CFPD/gt/'
+    data_dir = "logs/TestImage/CRF/"
 
-    val_pred_file_names = os.listdir(val_output_dir)
-    val_label_file_names = os.listdir(val_label_dir)
+    file_names = os.listdir(data_dir)
 
     val_gt_paths = []
     val_pred_paths = []
 
-    for file_name in tqdm(val_pred_file_names):
-        val_pred_paths.append(os.path.join(val_output_dir, file_name))
-
-    for file_name in tqdm(val_label_file_names):
-        val_gt_paths.append(os.path.join(val_label_dir, file_name))
+    for file_name in tqdm(file_names):
+        if file_name.startswith("pred_"):
+            val_pred_paths.append(os.path.join(data_dir, file_name))
+        elif file_name.startswith("gt_"):
+            val_gt_paths.append(os.path.join(data_dir, file_name))
 
     return val_pred_paths, val_gt_paths
 
@@ -55,13 +53,13 @@ def compute_hist(images, labels):
             image_array = np.array(image, dtype=np.int32)
 
         hist += fast_hist(label_array, image_array, n_cl)
-        cm = EM._calcCrossMat(label_array, image_array, n_cl)
+        cm = EM.calculate_confusion_matrix(label_array, image_array, n_cl)
         crossMats.append(cm)
 
     T_CM = np.sum(crossMats, axis=0)
     np.savetxt("logs/UNet_CFPD/our_totalCM.csv",
                T_CM, fmt='%4i', delimiter=',')
-    print(EM._calc_eval_metrics_from_confusion_matrix(T_CM, n_cl))
+    print(EM.calculate_eval_metrics_from_confusion_matrix(T_CM, n_cl))
 
     return hist
 

@@ -13,7 +13,7 @@ import time
 import numpy as np
 import scipy.misc as misc
 import pydensecrf.densecrf as dcrf
-import inference
+import denseCRF
 
 
 def _read_annotation(filename):
@@ -443,7 +443,7 @@ def _calc_eval_metrics(gtimage, predimage, num_classes):
 # anno = np.zeros((224, 224, 23))
 # output = dense_crf(input, anno, 23)
 # output = crf(input, anno, 23)
-_, crfoutput = inference.crf(
+_, crfoutput = denseCRF.crf(
     "inp.png", "pred.png", "output.png", 23, use_2d=True)
 #crfoutput = misc.imread("output.png")
 #crfoutput = misc.imresize(crfoutput, [224, 224])

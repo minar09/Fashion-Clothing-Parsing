@@ -8,7 +8,7 @@ import numpy as np
 import tensorflow as tf
 import time
 import EvalMetrics
-import inference
+import denseCRF
 import TensorflowUtils as Utils
 
 # Hide the warning messages about CPU/GPU
@@ -113,18 +113,18 @@ def mode_visualize(sess, FLAGS, TEST_DIR, validation_dataset_reader, pred_annota
         print("Saved image: %d" % itr)
 
         # Eval metrics for this image prediction
-        cm = EvalMetrics._calcCrossMat(
+        cm = EvalMetrics.calculate_confusion_matrix(
             valid_annotations[itr].astype(
                 np.uint8), pred[itr].astype(
                 np.uint8), NUM_OF_CLASSES)
         crossMats.append(cm)
 
         """ Generate CRF """
-        crfimage, crfoutput = inference.crf(TEST_DIR + "inp_" + str(itr) + ".png", TEST_DIR + "pred_" + str(
+        crfimage, crfoutput = denseCRF.crf(TEST_DIR + "inp_" + str(itr) + ".png", TEST_DIR + "pred_" + str(
             itr) + ".png", TEST_DIR + "crf_" + str(itr) + ".png", NUM_OF_CLASSES, use_2d=True)
 
         # Eval metrics for this image prediction with crf
-        crf_cm = EvalMetrics._calcCrossMat(
+        crf_cm = EvalMetrics.calculate_confusion_matrix(
             valid_annotations[itr].astype(
                 np.uint8), crfoutput.astype(
                 np.uint8), NUM_OF_CLASSES)
@@ -311,7 +311,7 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
             plt.title('Prediction')
 
             # Confusion matrix for this image prediction
-            crossMat = EvalMetrics._calcCrossMat(
+            crossMat = EvalMetrics.calculate_confusion_matrix(
                 valid_annotations[itr2].astype(
                     np.uint8), pred[itr2].astype(
                     np.uint8), NUM_OF_CLASSES)
@@ -337,11 +337,11 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
 
             # --------------------------------------------------
             """ Generate CRF """
-            crfimage, crfoutput = inference.crf(TEST_DIR + "inp_" + str(itr1 * FLAGS.batch_size + itr2) + ".png", TEST_DIR + "pred_" + str(
+            crfimage, crfoutput = denseCRF.crf(TEST_DIR + "inp_" + str(itr1 * FLAGS.batch_size + itr2) + ".png", TEST_DIR + "pred_" + str(
                 itr1 * FLAGS.batch_size + itr2) + ".png", TEST_DIR + "crf_" + str(itr1 * FLAGS.batch_size + itr2) + ".png", NUM_OF_CLASSES, use_2d=True)
 
             # Confusion matrix for this image prediction with crf
-            crf_crossMat = EvalMetrics._calcCrossMat(
+            crf_crossMat = EvalMetrics.calculate_confusion_matrix(
                 valid_annotations[itr2].astype(
                     np.uint8), crfoutput.astype(
                     np.uint8), NUM_OF_CLASSES)
@@ -397,3 +397,126 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
 
     end = time.time()
     print("Testing time:", end - start, "seconds")
+
+
+def mode_crftest(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, pred_annotation, image, annotation, keep_probability, logits, NUM_OF_CLASSES):
+    TEST_DIR = TEST_DIR + "CRF/"
+
+    accuracies = np.zeros(
+        (validation_dataset_reader.get_num_of_records(), 3, 2))
+    nFailed = 0
+    validation_dataset_reader.reset_batch_offset(0)
+    probability = tf.nn.softmax(logits=logits, axis=3)  # the axis!
+
+    for itr1 in range(validation_dataset_reader.get_num_of_records()//2):
+        valid_images, valid_annotations = validation_dataset_reader.next_batch(
+            FLAGS.batch_size)
+
+        predprob, pred = sess.run([probability, pred_annotation], feed_dict={image: valid_images, annotation: valid_annotations,
+                                                                             keep_probability: 1.0})
+        np.set_printoptions(threshold=10)
+        valid_annotations = np.squeeze(valid_annotations, axis=3)
+        pred = np.squeeze(pred)
+        predprob = np.squeeze(predprob)
+
+        # @TODO: convert np once not repeatedly
+        for itr2 in range(FLAGS.batch_size):
+
+            # 1. run CRF
+            crfwithlabeloutput = denseCRF.crf_with_labels(valid_images[itr2].astype(
+                np.uint8), pred[itr2].astype(np.uint8), NUM_OF_CLASSES)
+            crfwithprobsoutput = denseCRF.crf_with_probs(
+                valid_images[itr2].astype(np.uint8), predprob[itr2], NUM_OF_CLASSES)
+
+            original = valid_images[itr2].astype(np.uint8)
+            groundtruth = valid_annotations[itr2].astype(np.uint8)
+            fcnpred = pred[itr2].astype(np.uint8)
+            crfwithlabelpred = crfwithlabeloutput.astype(np.uint8)
+            crfwithprobspred = crfwithprobsoutput.astype(np.uint8)
+
+            # 2. Calculate confusion matrix between gtimage and prediction image and store to file
+            pred_confusion_matrix = EvalMetrics.calculate_confusion_matrix(
+                groundtruth, fcnpred, NUM_OF_CLASSES)
+            crfwithlabelpred_confusion_matrix = EvalMetrics.calculate_confusion_matrix(
+                groundtruth, crfwithlabelpred, NUM_OF_CLASSES)
+            crfwithprobspred_confusion_matrix = EvalMetrics.calculate_confusion_matrix(
+                groundtruth, crfwithprobspred, NUM_OF_CLASSES)
+
+            accuracies[itr1*2 +
+                       itr2][0] = EvalMetrics.calcuate_accuracy(pred_confusion_matrix, False)
+            accuracies[itr1*2 + itr2][1] = EvalMetrics.calcuate_accuracy(
+                crfwithlabelpred_confusion_matrix, False)
+            accuracies[itr1*2 + itr2][2] = EvalMetrics.calcuate_accuracy(
+                crfwithprobspred_confusion_matrix, True)
+
+            T_full = 0.9
+            T_fgnd = 0.85
+            if accuracies[itr1 * 2 + itr2][2][1] < T_full or accuracies[itr1 * 2 + itr2][2][0] < T_fgnd:
+                nFailed += 1
+                print("Failed Image (%d-th): %d" %
+                      (nFailed, itr1*2 + itr2))
+
+            # 4. saving result
+            filenum = str(itr1 * 2 + itr2)  # now we have 0-index image
+
+            Utils.save_image(original, FLAGS.logs_dir,
+                             name="in_" + filenum)
+            Utils.save_image(
+                groundtruth, FLAGS.logs_dir, name="gt_" + filenum)
+            Utils.save_image(crfwithprobspred,
+                             FLAGS.logs_dir, name="crf_" + filenum)
+
+            # ---End calculate cross matrix
+            print("Saved image: %s" % filenum)
+
+    np.save(FLAGS.logs_dir + "accuracy", accuracies)
+
+
+def mode_predonly(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, pred_annotation, image, annotation, keep_probability, logits, NUM_OF_CLASSES):
+    TEST_DIR = TEST_DIR + "CRF/"
+    nFailed = 0
+    validation_dataset_reader.reset_batch_offset(0)
+    probability = tf.nn.softmax(logits=logits, axis=3)  # the axis!
+
+    for itr1 in range(validation_dataset_reader.get_num_of_records()//2):
+        valid_images, _ = validation_dataset_reader.next_batch(
+            FLAGS.batch_size)
+
+        predprob, pred = sess.run([probability, pred_annotation], feed_dict={
+                                  image: valid_images, keep_probability: 1.0})
+        np.set_printoptions(threshold=10)
+        # print("Prediction Probability:", predprob)
+        # print("Preprob shape:", predprob.shape)
+        pred = np.squeeze(pred)
+        predprob = np.squeeze(predprob)
+
+        # @TODO: convert np once not repeatedly
+        for itr2 in range(FLAGS.batch_size):
+            # if(itr1 * 2 + itr2 <= 831):
+            #    continue
+
+            # 1. run CRF
+            # print("Output file: ", FLAGS.logs_dir + "crf_" + str(itr1*2+itr2))
+            # crfimage, crfoutput = crf(valid_images[itr2].astype(np.uint8),pred[itr2].astype(np.uint8))
+            crfwithlabeloutput = denseCRF.crf_with_labels(valid_images[itr2].astype(
+                np.uint8), pred[itr2].astype(np.uint8), NUM_OF_CLASSES)
+            crfwithprobsoutput = denseCRF.crf_with_probs(
+                valid_images[itr2].astype(np.uint8), predprob[itr2], NUM_OF_CLASSES)
+
+            # 2. show result display
+            orignal = valid_images[itr2].astype(np.uint8)
+            fcnpred = pred[itr2].astype(np.uint8)
+            crfwithlabelpred = crfwithlabeloutput.astype(np.uint8)
+            crfwithprobspred = crfwithprobsoutput.astype(np.uint8)
+
+            # 4. saving result
+            filenum = str(itr1 * 2 + itr2)  # now we have 0-index image
+
+            Utils.save_image(orignal, FLAGS.logs_dir,
+                             name="in_" + filenum)
+            Utils.save_image(crfwithprobspred,
+                             FLAGS.logs_dir, name="crf_" + filenum)
+
+            # ---End calculate cross matrix
+            print("Saved image: %s" % filenum)
+

@@ -1,5 +1,5 @@
 """
-Adapted from the inference.py to demonstate the usage of the util functions.
+Adapted from the denseCRF.py to demonstate the usage of the util functions.
 """
 
 import numpy as np
@@ -165,9 +165,9 @@ def crf(fn_im, fn_anno, fn_output, NUM_OF_CLASSESS, use_2d=True):
 
 def dense_crf(original_image, annotated_image, NUM_OF_CLASSES, use_2d=True):
     # Converting annotated image to RGB if it is Gray scale
-    #print("crf function")
-    #annotated_image = tf.expand_dims(annotated_image, dim=0)
-    #print(original_image.shape, annotated_image.shape)
+    # print("crf function")
+    # annotated_image = tf.expand_dims(annotated_image, dim=0)
+    # print(original_image.shape, annotated_image.shape)
 
     # Gives no of class labels in the annotated image
     #n_labels = len(set(labels.flat))
@@ -185,7 +185,7 @@ def dense_crf(original_image, annotated_image, NUM_OF_CLASSES, use_2d=True):
     U = unary_from_softmax(softmax, scale=None, clip=1e-5)
 
     U = np.ascontiguousarray(U)
-    #U = unary_from_labels(labels, n_labels, gt_prob=0.7, zero_unsure=False)
+    # U = unary_from_labels(labels, n_labels, gt_prob=0.7, zero_unsure=False)
     d.setUnaryEnergy(U)
 
     # This adds the color-independent term, features are the locations
@@ -210,7 +210,7 @@ def dense_crf(original_image, annotated_image, NUM_OF_CLASSES, use_2d=True):
     # Run Inference for 5 steps
     Q = d.inference(5)
 
-    #print(">>>>>>>>Qshape: ", Q.shape)
+    # print(">>>>>>>>Qshape: ", Q.shape)
     # Find out the most probable class for each pixel.
     output = np.argmax(Q, axis=0).reshape(
         (original_image.shape[0], original_image.shape[1]))
@@ -219,4 +219,72 @@ def dense_crf(original_image, annotated_image, NUM_OF_CLASSES, use_2d=True):
     return output
 
 
-#####################################################Optimization functions###################################################
+# Original_image = Image which has to labelled
+# Annotated image = Which has been labelled by some technique( FCN in this case)
+# Output_image = The final output image after applying CRF
+# Use_2d = boolean variable
+# if use_2d = True specialised 2D fucntions will be applied
+# else Generic functions will be applied
+
+def crf_with_probs(orig, probs, num_label, num_iter=5, use_2d=True):
+
+    # Setting up the CRF model
+    np.set_printoptions(threshold=10)
+    probs = probs.transpose((2, 0, 1))
+    # print("probs:", probs)
+    # print("probs shape:", probs.shape)
+
+    if use_2d:
+        d = dcrf.DenseCRF2D(orig.shape[1], orig.shape[0], num_label)
+
+        # get unary potentials (neg log probability)
+        U = unary_from_softmax(probs)
+        d.setUnaryEnergy(U)
+
+        # This adds the color-independent term, features are the locations only.
+        d.addPairwiseGaussian(sxy=(3, 3), compat=3, kernel=dcrf.DIAG_KERNEL,
+                              normalization=dcrf.NORMALIZE_SYMMETRIC)
+
+        # This adds the color-dependent term, i.e. features are (x,y,r,g,b).
+        d.addPairwiseBilateral(sxy=(10, 10), srgb=(13, 13, 13), rgbim=orig,
+                               compat=10,
+                               kernel=dcrf.DIAG_KERNEL,
+                               normalization=dcrf.NORMALIZE_SYMMETRIC)
+
+    # Run Inference for 5 steps
+    Q = d.inference(num_iter)
+    # print(">>>>>>>>Qshape: ", Q.shape)
+    # Find out the most probable class for each pixel.
+    MAP = np.argmax(Q, axis=0)
+    output = MAP.reshape((orig.shape[1], orig.shape[0]))  # orig.shape[)
+    return output
+
+
+def crf_with_labels(orig, annotated_image, num_label, num_iter=5, use_2d=True):
+
+    # Setting up the CRF model
+    if use_2d:
+        d = dcrf.DenseCRF2D(orig.shape[1], orig.shape[0], num_label)
+
+        # get unary potentials (neg log probability)
+        U = unary_from_labels(annotated_image, num_label,
+                              gt_prob=0.7, zero_unsure=False)
+        d.setUnaryEnergy(U)
+
+        # This adds the color-independent term, features are the locations only.
+        d.addPairwiseGaussian(sxy=(3, 3), compat=3, kernel=dcrf.DIAG_KERNEL,
+                              normalization=dcrf.NORMALIZE_SYMMETRIC)
+
+        # This adds the color-dependent term, i.e. features are (x,y,r,g,b).
+        d.addPairwiseBilateral(sxy=(10, 10), srgb=(13, 13, 13), rgbim=orig,
+                               compat=10,
+                               kernel=dcrf.DIAG_KERNEL,
+                               normalization=dcrf.NORMALIZE_SYMMETRIC)
+
+    # Run Inference for 5 steps
+    Q = d.inference(num_iter)
+    MAP = np.argmax(Q, axis=0)
+    # original_image.shape[)
+    output = MAP.reshape((orig.shape[1], orig.shape[0]))
+
+    return output
