@@ -15,8 +15,8 @@ import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 
-# DATA_SET = "10k"
-DATA_SET = "CFPD"
+DATA_SET = "10k"
+# DATA_SET = "CFPD"
 # DATA_SET = "LIP"
 
 FLAGS = tf.flags.FLAGS
@@ -275,7 +275,7 @@ def main(argv=None):
     if FLAGS.mode == 'visualize':
         validation_dataset_reader = DataSetReader.BatchDatset(
             valid_records, image_options)
-    if FLAGS.mode == 'test':
+    if FLAGS.mode == 'test' or FLAGS.mode == 'crftest' or FLAGS.mode == 'predonly' or FLAGS.mode == "fulltest":
         if DATA_SET == "CFPD":
             test_dataset_reader = DataSetReader.BatchDatset(
                 test_records, image_options)
@@ -320,6 +320,21 @@ def main(argv=None):
     elif FLAGS.mode == "test":  # heejune added
 
         fd.mode_test(sess, FLAGS, TEST_DIR, test_dataset_reader, test_records,
+                     pred_annotation, image, annotation, keep_probability, logits, NUM_OF_CLASSES)
+
+    elif FLAGS.mode == "crftest":
+
+        fd.mode_predonly(sess, FLAGS, TEST_DIR, test_dataset_reader, test_records,
+                     pred_annotation, image, annotation, keep_probability, logits, NUM_OF_CLASSES)
+
+    elif FLAGS.mode == "predonly":
+
+        fd.mode_predonly(sess, FLAGS, TEST_DIR, test_dataset_reader, test_records,
+                     pred_annotation, image, annotation, keep_probability, logits, NUM_OF_CLASSES)
+
+    elif FLAGS.mode == "fulltest":
+
+        fd.mode_full_test(sess, FLAGS, TEST_DIR, test_dataset_reader, test_records,
                      pred_annotation, image, annotation, keep_probability, logits, NUM_OF_CLASSES)
 
     sess.close()
