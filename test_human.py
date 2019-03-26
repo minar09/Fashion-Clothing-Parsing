@@ -13,7 +13,7 @@ def main():
 
 def init_path():
 
-    data_dir = "logs/TestImage/CRF/"
+    data_dir = "logs/UNet_10k/TestImage/"
 
     file_names = os.listdir(data_dir)
 
@@ -21,7 +21,8 @@ def init_path():
     val_pred_paths = []
 
     for file_name in tqdm(file_names):
-        if file_name.startswith("pred_"):
+        if file_name.startswith("probcrf_"):
+            # if file_name.startswith("labelcrf_"):
             val_pred_paths.append(os.path.join(data_dir, file_name))
         elif file_name.startswith("gt_"):
             val_gt_paths.append(os.path.join(data_dir, file_name))
@@ -57,7 +58,7 @@ def compute_hist(images, labels):
         crossMats.append(cm)
 
     T_CM = np.sum(crossMats, axis=0)
-    np.savetxt("logs/UNet_CFPD/our_totalCM.csv",
+    np.savetxt("logs/UNet_10k/labelcrf_totalCM.csv",
                T_CM, fmt='%4i', delimiter=',')
     print(EM.calculate_eval_metrics_from_confusion_matrix(T_CM, n_cl))
 
@@ -65,7 +66,7 @@ def compute_hist(images, labels):
 
 
 def show_result(hist):
-    np.savetxt("logs/UNet_CFPD/JPP_totalCM.csv",
+    np.savetxt("logs/UNet_10k/label_crf_totalCM.csv",
                hist, fmt='%4i', delimiter=',')
 
     classes = ['bk', 'T-shirt', 'bag', 'belt', 'blazer', 'blouse', 'coat', 'dress', 'face', 'hair',

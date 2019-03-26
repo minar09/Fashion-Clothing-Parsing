@@ -16,9 +16,9 @@ bDebug = False
 def init_path():
     # data_dir = 'logs/FCN_LIP/TestImage/'
     # data_dir = 'logs/FCN_10k/TestImage/'
-    data_dir = 'logs/FCN_CFPD/TestImage/'
+    # data_dir = 'logs/FCN_CFPD/TestImage/'
     # data_dir = 'logs/UNet_LIP/TestImage/'
-    # data_dir = 'logs/UNet_10k/TestImage/'
+    data_dir = 'logs/UNet_10k/TestImage/'
     # data_dir = 'logs/UNet_CFPD/TestImage/'
 
     val_gt_paths = []
