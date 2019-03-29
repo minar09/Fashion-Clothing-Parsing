@@ -325,9 +325,6 @@ def main(argv=None):
                       image, annotation, keep_probability, logits, train_op, loss, summary_op, summary_writer,
                       saver, DISPLAY_STEP)
 
-        fd.mode_test(sess, FLAGS, TEST_DIR, test_dataset_reader, test_records,
-                     pred_annotation, image, annotation, keep_probability, logits, NUM_OF_CLASSES)
-
     # test-random-validation-data mode
     elif FLAGS.mode == "visualize":
 
