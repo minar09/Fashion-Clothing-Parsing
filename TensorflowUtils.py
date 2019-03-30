@@ -10,11 +10,86 @@ import numpy as np
 import tensorflow as tf
 import os
 from functools import reduce
+from PIL import Image
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
+# colour map for LIP dataset
+lip_label_colours = [(0, 0, 0),  # 0=Background
+                     (128, 0, 0),  # 1=Hat
+                     (255, 0, 0),  # 2=Hair
+                     (0, 85, 0),   # 3=Glove
+                     (170, 0, 51),  # 4=Sunglasses
+                     (255, 85, 0),  # 5=UpperClothes
+                     (0, 0, 85),  # 6=Dress
+                     (0, 119, 221),  # 7=Coat
+                     (85, 85, 0),  # 8=Socks
+                     (0, 85, 85),  # 9=Pants
+                     (85, 51, 0),  # 10=Jumpsuits
+                     (52, 86, 128),  # 11=Scarf
+                     (0, 128, 0),  # 12=Skirt
+                     (0, 0, 255),  # 13=Face
+                     (51, 170, 221),  # 14=LeftArm
+                     (0, 255, 255),  # 15=RightArm
+                     (85, 255, 170),  # 16=LeftLeg
+                     (170, 255, 85),  # 17=RightLeg
+                     (255, 255, 0),  # 18=LeftShoe
+                     (255, 170, 0)  # 19=RightShoe
+                     ]
+
+# colour map for 10k dataset
+fashion_label_colours = [(0, 0, 0),  # 0=Background
+                         (128, 0, 0),  # hat
+                         (255, 0, 0),  # hair
+                         (170, 0, 51),  # sunglasses
+                         (255, 85, 0),  # upper-clothes
+                         (0, 128, 0),  # skirt
+                         (0, 85, 85),  # pants
+                         (0, 0, 85),  # dress
+                         (0, 85, 0),  # belt
+                         (255, 255, 0),  # Left-shoe
+                         (255, 170, 0),  # Right-shoe
+                         (0, 0, 255),  # face
+                         (85, 255, 170),  # left-leg
+                         (170, 255, 85),  # right-leg
+                         (51, 170, 221),  # left-arm
+                         (0, 255, 255),  # right-arm
+                         (85, 51, 0),  # bag
+                         (52, 86, 128)  # scarf
+                         ]
+
 
 # Utils used with tensorflow implemetation
 
 DEFAULT_PADDING = 'SAME'
+
+
+def decode_labels(mask, num_classes=18):
+    """Decode batch of segmentation masks.
+
+    Args:
+      mask: result of inference after taking argmax.
+      num_images: number of images to decode from the batch.
+      num_classes: number of classes
+    Returns:
+      A batch with num_images RGB images of the same size as the input.
+    """
+    label_colours = []
+    if num_classes == 20:
+        label_colours = lip_label_colours
+    elif num_classes == 18:
+        label_colours = fashion_label_colours
+
+    h, w = mask.shape
+
+    img = Image.new('RGB', (len(mask[0]), len(mask)))
+    pixels = img.load()
+    for j_, j in enumerate(mask[:, :, 0]):
+        for k_, k in enumerate(j):
+            if k < num_classes:
+                pixels[k_, j_] = label_colours[k]
+    outputs = np.array(img)
+
+    return outputs
 
 
 """
@@ -97,6 +172,26 @@ def save_image(image, save_dir, name, mean=None):
     if mean:
         image = unprocess_image(image, mean)
     misc.imsave(os.path.join(save_dir, name + ".png"), image)
+
+
+def save_visualized_image(image_value, save_dir, image_name, n_classes=18, mean=None):
+    """
+    Save image by unprocessing if mean given else just save
+    :param n_classes:
+    :param mean:
+    :param image_value:
+    :param save_dir:
+    :param image_name:
+    :return:
+    """
+    if mean:
+        image_value = unprocess_image(image_value, mean)
+
+    msk = decode_labels(image_value, num_classes=n_classes)
+    parsing_im = Image.fromarray(msk)
+    parsing_im.save('{}/{}_vis.png'.format(save_dir, image_name))
+    # cv2.imwrite('{}/{}.png'.format(save_dir, name), parsing_[0, :, :, 0])
+    # misc.imsave(os.path.join(save_dir, name + ".png"), image)
 
 
 def get_variable(weights, name):

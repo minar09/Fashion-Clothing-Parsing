@@ -22,7 +22,7 @@ DATA_SET = "10k"
 FLAGS = tf.flags.FLAGS
 
 if DATA_SET == "10k":
-    tf.flags.DEFINE_integer("batch_size", "112", "batch size for training")
+    tf.flags.DEFINE_integer("batch_size", "32", "batch size for training")
     tf.flags.DEFINE_integer(
         "training_epochs",
         "50",
