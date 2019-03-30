@@ -75,13 +75,15 @@ def decode_labels(mask, num_classes=n_classes):
 
     Returns:
       A batch with num_images RGB images of the same size as the input.
+      :param mask:
+      :param num_classes:
     """
 
     img = Image.new('RGB', (len(mask[0]), len(mask)))
     pixels = img.load()
     for j_, j in enumerate(mask[:, :, 0]):
         for k_, k in enumerate(j):
-            if k < n_classes:
+            if k < num_classes:
                 pixels[k_, j_] = label_colours[k]
     outputs = np.array(img)
     return outputs

@@ -63,7 +63,7 @@ fashion_label_colours = [(0, 0, 0),  # 0=Background
 DEFAULT_PADDING = 'SAME'
 
 
-def decode_labels(mask, num_classes=18):
+def decode_labels(mask, num_classes=18, num_images=1):
     """Decode batch of segmentation masks.
 
     Args:
@@ -79,17 +79,24 @@ def decode_labels(mask, num_classes=18):
     elif num_classes == 18:
         label_colours = fashion_label_colours
 
-    h, w = mask.shape
+    mask = np.expand_dims(mask, axis=0)
+    mask = np.expand_dims(mask, axis=3)
 
-    img = Image.new('RGB', (len(mask[0]), len(mask)))
-    pixels = img.load()
-    for j_, j in enumerate(mask[:, :, 0]):
-        for k_, k in enumerate(j):
-            if k < num_classes:
-                pixels[k_, j_] = label_colours[k]
-    outputs = np.array(img)
+    n, h, w, c = mask.shape
+    assert (n >= num_images), 'Batch size %d should be greater or equal than number of images to save %d.' % (
+        n, num_images)
+    outputs = np.zeros((num_images, h, w, 3), dtype=np.uint8)
 
-    return outputs
+    for i in range(num_images):
+        img = Image.new('RGB', (len(mask[i, 0]), len(mask[i])))
+        pixels = img.load()
+        for j_, j in enumerate(mask[i, :, :, 0]):
+            for k_, k in enumerate(j):
+                if k < num_classes:
+                    pixels[k_, j_] = label_colours[k]
+        outputs[i] = np.array(img)
+
+    return outputs[0]
 
 
 """
