@@ -216,7 +216,8 @@ def crf_with_probs(original_input_image, predicted_probabilities, num_label, num
     # print("probs shape:", probs.shape)
 
     if use_2d:
-        d = dcrf.DenseCRF2D(original_input_image.shape[1], original_input_image.shape[0], num_label)
+        d = dcrf.DenseCRF2D(
+            original_input_image.shape[1], original_input_image.shape[0], num_label)
 
         # get unary potentials (neg log probability)
         U = unary_from_softmax(predicted_probabilities)
@@ -237,7 +238,8 @@ def crf_with_probs(original_input_image, predicted_probabilities, num_label, num
     # print(">>>>>>>>Qshape: ", Q.shape)
     # Find out the most probable class for each pixel.
     MAP = np.argmax(Q, axis=0)
-    output = MAP.reshape((original_input_image.shape[1], original_input_image.shape[0]))  # orig.shape[)
+    output = MAP.reshape(
+        (original_input_image.shape[1], original_input_image.shape[0]))  # orig.shape[)
     return output
 
 
@@ -245,7 +247,8 @@ def crf_with_labels(original_input_image, predicted_segmentation, num_label, num
 
     # Setting up the CRF model
     if use_2d:
-        d = dcrf.DenseCRF2D(original_input_image.shape[1], original_input_image.shape[0], num_label)
+        d = dcrf.DenseCRF2D(
+            original_input_image.shape[1], original_input_image.shape[0], num_label)
 
         # get unary potentials (neg log probability)
         U = unary_from_labels(predicted_segmentation, num_label,
@@ -266,7 +269,8 @@ def crf_with_labels(original_input_image, predicted_segmentation, num_label, num
     Q = d.inference(num_iter)
     MAP = np.argmax(Q, axis=0)
     # original_image.shape[)
-    output = MAP.reshape((original_input_image.shape[1], original_input_image.shape[0]))
+    output = MAP.reshape(
+        (original_input_image.shape[1], original_input_image.shape[0]))
 
     return output
 

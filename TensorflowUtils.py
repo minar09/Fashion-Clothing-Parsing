@@ -47,12 +47,14 @@ dressup10k_label_colors = [(0, 0, 0),  # 'black', #  "background", #     0
                            (46, 139, 87),  # 'seagreen', #"dress", #          7
                            (153, 50, 204),  # 'darkorchid',  #"belt", #           8
                            (178, 34, 34),  # 'firebrick',  #   "left-shoe", #      9
-                           (233, 150, 122),  # 'darksalmon', #"right-shoe", #     10
+                           # 'darksalmon', #"right-shoe", #     10
+                           (233, 150, 122),
                            (255, 228, 181),  # 'moccasin', #"face",  #           11
                            (0, 100, 0),  # 'darkgreen', #"left-leg", #       12
                            (65, 105, 225),  # 'royalblue', #"right-leg", #      13
                            (127, 255, 0),  # 'chartreuse', #"left-arm",#       14
-                           (175, 238, 238),  # 'paleturquoise',  #"right-arm", #      15
+                           # 'paleturquoise',  #"right-arm", #      15
+                           (175, 238, 238),
                            (0, 139, 139),  # 'darkcyan', #  "bag", #            16
                            (0, 191, 255),  # 'deepskyblue' #"scarf" #          17
                            ]

@@ -340,17 +340,17 @@ def main(argv=None):
     elif FLAGS.mode == "crftest":
 
         fd.mode_predonly(sess, FLAGS, TEST_DIR, test_dataset_reader, test_records,
-                     pred_annotation, image, annotation, keep_probability, logits, NUM_OF_CLASSES)
+                         pred_annotation, image, annotation, keep_probability, logits, NUM_OF_CLASSES)
 
     elif FLAGS.mode == "predonly":
 
         fd.mode_predonly(sess, FLAGS, TEST_DIR, test_dataset_reader, test_records,
-                     pred_annotation, image, annotation, keep_probability, logits, NUM_OF_CLASSES)
+                         pred_annotation, image, annotation, keep_probability, logits, NUM_OF_CLASSES)
 
     elif FLAGS.mode == "fulltest":
 
         fd.mode_full_test(sess, FLAGS, TEST_DIR, test_dataset_reader, test_records,
-                     pred_annotation, image, annotation, keep_probability, logits, NUM_OF_CLASSES)
+                          pred_annotation, image, annotation, keep_probability, logits, NUM_OF_CLASSES)
 
     sess.close()
 

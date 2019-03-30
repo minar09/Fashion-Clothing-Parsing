@@ -27,9 +27,9 @@ def init_path():
     all_files = os.listdir(data_dir)
 
     for file in all_files:
-        if file.startswith("gt_"):
+        if file.startswith("gt_") and "_vis" not in file:
             val_gt_paths.append(data_dir + file)
-        if file.startswith("pred_"):
+        if file.startswith("pred_") and "_vis" not in file:
             val_pred_paths.append(data_dir + file)
 
     return val_pred_paths, val_gt_paths
