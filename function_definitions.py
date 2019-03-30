@@ -10,12 +10,14 @@ import time
 import EvalMetrics
 import denseCRF
 import TensorflowUtils as Utils
+from matplotlib.colors import ListedColormap, BoundaryNorm
 
 # Hide the warning messages about CPU/GPU
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 
+"""
 # color map for LIP
 LIP_colors = [(0, 0, 0)                 # 0=Background
               # 1=Hat,  2=Hair,    3=Glove, 4=Sunglasses, 5=UpperClothes
@@ -25,6 +27,29 @@ LIP_colors = [(0, 0, 0)                 # 0=Background
 cmap_name = 'lip_cmap'
 n_bins = [3, 6, 10, 100]  # Discretizes the interpolation into bins
 # lip_cm = LinearSegmentedColormap.from_list(cmap_name, LIP_colors, N=n_bin)
+"""
+
+label_colors =  ['black', #  "background", #     0
+                 'sienna', #"hat", #            1
+                 'gray', #"hair", #           2
+                 'navy', #"sunglass", #       3
+                 'red',  #"upper-clothes", #  4
+                 'gold', #"skirt",  #          5
+                 'blue', #"pants",  #          6
+                 'seagreen', #"dress", #          7
+                 'darkorchid',  #"belt", #           8
+                 'firebrick',  #   "left-shoe", #      9
+                 'darksalmon', #"right-shoe", #     10
+                 'moccasin', #"face",  #           11
+                 'darkgreen', #"left-leg", #       12
+                 'royalblue', #"right-leg", #      13
+                 'chartreuse', #"left-arm",#       14
+                 'paleturquoise',  #"right-arm", #      15
+                 'darkcyan', #  "bag", #            16
+                 'deepskyblue' #"scarf" #          17
+        ]
+clothnorm = BoundaryNorm([-0.5, 0.5, 1.5, 2.5, 3.5 ,4.5, 5.5, 6.5, 7.5, 8.5, 9.5, 10.5, 11.5, 12.5, 13.5, 14.5, 15.5, 16.5, 17.5], 18)
+
 
 """
    Optimization functions
@@ -554,19 +579,15 @@ def mode_full_test(sess, flags, save_dir, validation_dataset_reader, valid_recor
 
             pos = 240 + 2
             plt.subplot(pos)
-            plt.imshow(
-                valid_annotations[itr2].astype(
-                    np.uint8),
-                cmap=plt.get_cmap('nipy_spectral'))
+            # plt.imshow(valid_annotations[itr2].astype(np.uint8), cmap=plt.get_cmap('nipy_spectral'))
+            plt.imshow(valid_annotations[itr2].astype(np.uint8), cmap=ListedColormap(label_colors), norm=clothnorm)
             plt.axis('off')
             plt.title('GT')
 
             pos = 240 + 3
             plt.subplot(pos)
-            plt.imshow(
-                pred[itr2].astype(
-                    np.uint8),
-                cmap=plt.get_cmap('nipy_spectral'))
+            # plt.imshow(pred[itr2].astype(np.uint8), cmap=plt.get_cmap('nipy_spectral'))
+            plt.imshow(pred[itr2].astype(np.uint8), cmap=ListedColormap(label_colors), norm=clothnorm)
             plt.axis('off')
             plt.title('Prediction')
 
@@ -648,15 +669,15 @@ def mode_full_test(sess, flags, save_dir, validation_dataset_reader, valid_recor
 
             pos = 240 + 4
             plt.subplot(pos)
-            plt.imshow(crfwithprobsoutput.astype(np.uint8),
-                       cmap=plt.get_cmap('nipy_spectral'))
+            # plt.imshow(crfwithprobsoutput.astype(np.uint8), cmap=plt.get_cmap('nipy_spectral'))
+            plt.imshow(crfwithprobsoutput.astype(np.uint8), cmap=ListedColormap(label_colors), norm=clothnorm)
             plt.axis('off')
             plt.title('Prediction + CRF (prob)')
 
             pos = 240 + 5
             plt.subplot(pos)
-            plt.imshow(crfwithlabeloutput.astype(np.uint8),
-                       cmap=plt.get_cmap('nipy_spectral'))
+            # plt.imshow(crfwithlabeloutput.astype(np.uint8), cmap=plt.get_cmap('nipy_spectral'))
+            plt.imshow(crfwithlabeloutput.astype(np.uint8), cmap=ListedColormap(label_colors), norm=clothnorm)
             plt.axis('off')
             plt.title('Prediction + CRF (label)')
 

@@ -20,6 +20,7 @@ import time
 import scipy.misc as misc
 from PIL import Image
 from tqdm import tqdm
+import TensorflowUtils as utils
 
 # Get im{read,write} from somewhere.
 try:
@@ -40,53 +41,9 @@ if not os.path.exists(OUTPUT_DIR):
 
 n_classes = 18
 
-# colour map
-label_colours = [(0, 0, 0),  # 0=Background
-                 (128, 0, 0),  # hat
-                 (255, 0, 0),  # hair
-                 (170, 0, 51),  # sunglasses
-                 (255, 85, 0),  # upper-clothes
-                 (0, 128, 0),  # skirt
-                 (0, 85, 85),  # pants
-                 (0, 0, 85),  # dress
-                 (0, 85, 0),  # belt
-                 (255, 255, 0),  # Left-shoe
-                 (255, 170, 0),  # Right-shoe
-                 (0, 0, 255),  # face
-                 (85, 255, 170),  # left-leg
-                 (170, 255, 85),  # right-leg
-                 (51, 170, 221),  # left-arm
-                 (0, 255, 255),  # right-arm
-                 (85, 51, 0),  # bag
-                 (52, 86, 128)  # scarf
-                 ]
-
 # image mean
 IMG_MEAN = np.array((104.00698793, 116.66876762,
                      122.67891434), dtype=np.float32)
-
-
-def decode_labels(mask, num_classes=n_classes):
-    """Decode batch of segmentation masks.
-
-    Args:
-      mask: result of inference after taking argmax.
-      num_images: number of images to decode from the batch.
-
-    Returns:
-      A batch with num_images RGB images of the same size as the input.
-      :param mask:
-      :param num_classes:
-    """
-
-    img = Image.new('RGB', (len(mask[0]), len(mask)))
-    pixels = img.load()
-    for j_, j in enumerate(mask[:, :, 0]):
-        for k_, k in enumerate(j):
-            if k < num_classes:
-                pixels[k_, j_] = label_colours[k]
-    outputs = np.array(img)
-    return outputs
 
 
 def init_path():
@@ -229,7 +186,7 @@ def crf(fn_im, fn_anno, fn_output, NUM_OF_CLASSES=n_classes, use_2d=True):
     crfimage = MAP.reshape(img.shape)
     # print(crfimage.shape)
 
-    msk = decode_labels(crfimage, num_classes=NUM_OF_CLASSES)
+    msk = utils.decode_labels(crfimage, num_classes=NUM_OF_CLASSES)
     parsing_im = Image.fromarray(msk)
     parsing_im.save(fn_output+'_vis.png')
     cv2.imwrite(fn_output+'.png', crfimage[:, :, 0])
