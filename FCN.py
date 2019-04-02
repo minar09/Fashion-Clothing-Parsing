@@ -12,8 +12,8 @@ import tensorflow as tf
 
 # Hide the warning messages about CPU/GPU
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 DATA_SET = "10k"
 # DATA_SET = "CFPD"
@@ -22,7 +22,7 @@ DATA_SET = "10k"
 FLAGS = tf.flags.FLAGS
 
 if DATA_SET == "10k":
-    tf.flags.DEFINE_integer("batch_size", "32", "batch size for training")
+    tf.flags.DEFINE_integer("batch_size", "2", "batch size for training")
     tf.flags.DEFINE_integer(
         "training_epochs",
         "50",
@@ -78,7 +78,6 @@ IMAGE_SIZE = 224
 DISPLAY_STEP = 300
 TEST_DIR = FLAGS.logs_dir + "TestImage/"
 VIS_DIR = FLAGS.logs_dir + "VisImage/"
-
 
 """
    Train, Test
@@ -184,7 +183,6 @@ def train(loss_val, var_list, global_step):
 
 
 def main(argv=None):
-
     # 1. input placeholders
     keep_probability = tf.placeholder(tf.float32, name="keep_probability")
     image = tf.placeholder(
@@ -305,7 +303,8 @@ def main(argv=None):
     if FLAGS.mode == "train":
 
         fd.mode_train(sess, FLAGS, net, train_dataset_reader, validation_dataset_reader, train_records, pred_annotation,
-                      image, annotation, keep_probability, logits, train_op, loss, summary_op, summary_writer, saver, DISPLAY_STEP)
+                      image, annotation, keep_probability, logits, train_op, loss, summary_op, summary_writer, saver,
+                      DISPLAY_STEP)
 
     # test-random-validation-data mode
     elif FLAGS.mode == "visualize":
@@ -316,8 +315,11 @@ def main(argv=None):
     # test-full-validation-dataset mode
     elif FLAGS.mode == "test":  # heejune added
 
-        fd.mode_test(sess, FLAGS, TEST_DIR, test_dataset_reader, test_records,
-                     pred_annotation, image, annotation, keep_probability, logits, NUM_OF_CLASSES)
+        fd.mode_new_test(sess, FLAGS, TEST_DIR, test_dataset_reader, test_records,
+                         pred_annotation, image, annotation, keep_probability, logits, NUM_OF_CLASSES)
+
+        # fd.mode_test(sess, FLAGS, TEST_DIR, test_dataset_reader, test_records,
+        # pred_annotation, image, annotation, keep_probability, logits, NUM_OF_CLASSES)
 
     elif FLAGS.mode == "crftest":
 

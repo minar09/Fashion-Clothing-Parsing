@@ -11,8 +11,8 @@ import tensorflow as tf
 
 # Hide the warning messages about CPU/GPU
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 DATA_SET = "10k"
 # DATA_SET = "CFPD"
@@ -21,7 +21,7 @@ DATA_SET = "10k"
 FLAGS = tf.flags.FLAGS
 
 if DATA_SET == "10k":
-    tf.flags.DEFINE_integer("batch_size", "32", "batch size for training")
+    tf.flags.DEFINE_integer("batch_size", "2", "batch size for training")
     tf.flags.DEFINE_integer(
         "training_epochs",
         "50",
@@ -60,11 +60,11 @@ tf.flags.DEFINE_float(
 tf.flags.DEFINE_string("model_dir", "Model_zoo/", "Path to vgg model mat")
 tf.flags.DEFINE_bool('debug', "False", "Debug mode: True/ False")
 
-# tf.flags.DEFINE_string('mode', "train", "Mode train/ test/ visualize")
+tf.flags.DEFINE_string('mode', "train", "Mode train/ test/ visualize")
 # tf.flags.DEFINE_string('mode', "test", "Mode train/ test/ visualize")
 # tf.flags.DEFINE_string('mode', "visualize", "Mode train/ test/ visualize")
 # tf.flags.DEFINE_string('mode', "predonly", "Mode train/ test/ visualize")
-tf.flags.DEFINE_string('mode', "fulltest", "Mode train/ test/ visualize")
+# tf.flags.DEFINE_string('mode', "fulltest", "Mode train/ test/ visualize")
 
 MAX_ITERATION = int(1e5 + 1001)
 
@@ -80,7 +80,6 @@ if DATA_SET == "LIP":
 IMAGE_SIZE = 224
 TEST_DIR = FLAGS.logs_dir + "TestImage/"
 VIS_DIR = FLAGS.logs_dir + "VisImage/"
-
 
 """
   UNET
@@ -334,8 +333,11 @@ def main(argv=None):
     # test-full-validation-dataset mode
     elif FLAGS.mode == "test":
 
-        fd.mode_test(sess, FLAGS, TEST_DIR, test_dataset_reader, test_records,
-                     pred_annotation, image, annotation, keep_probability, logits, NUM_OF_CLASSES)
+        fd.mode_new_test(sess, FLAGS, TEST_DIR, test_dataset_reader, test_records,
+                         pred_annotation, image, annotation, keep_probability, logits, NUM_OF_CLASSES)
+
+        # fd.mode_test(sess, FLAGS, TEST_DIR, test_dataset_reader, test_records,
+        # pred_annotation, image, annotation, keep_probability, logits, NUM_OF_CLASSES)
 
     elif FLAGS.mode == "crftest":
 
