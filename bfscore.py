@@ -31,8 +31,8 @@ def init_path():
     for file in all_files:
         if file.startswith("gt_") and "_vis" not in file:
             val_gt_paths.append(data_dir + file)
-        # if file.startswith("crf_") and "_vis" not in file:
-        if file.startswith("pred_") and "_vis" not in file:
+        # if file.startswith("pred_") and "_vis" not in file:
+        if file.startswith("crf_") and "_vis" not in file:
             val_pred_paths.append(data_dir + file)
 
     return val_pred_paths, val_gt_paths
