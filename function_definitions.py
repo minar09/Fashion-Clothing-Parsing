@@ -757,28 +757,26 @@ def mode_new_test(sess, flags, save_dir, validation_dataset_reader, valid_record
     cross_mats = list()
     crf_cross_mats = list()
 
-    tf_pixel_acc_list = []
-    tf_miou_list = []
+    # tf_pixel_acc_list = []
+    # tf_miou_list = []
 
-    pixel_acc_op, pixel_acc_update_op = tf.metrics.accuracy(labels=annotation, predictions=pred_annotation)
-    mean_iou_op, mean_iou_update_op = tf.metrics.mean_iou(labels=annotation, predictions=pred_annotation, num_classes=num_classes)
+    # pixel_acc_op, pixel_acc_update_op = tf.metrics.accuracy(labels=annotation, predictions=pred_annotation)
+    # mean_iou_op, mean_iou_update_op = tf.metrics.mean_iou(labels=annotation, predictions=pred_annotation, num_classes=num_classes)
 
     for itr1 in range(validation_dataset_reader.get_num_of_records() // flags.batch_size):
 
         valid_images, valid_annotations = validation_dataset_reader.next_batch(
             flags.batch_size)
 
-        # predprob, pred = sess.run([probability, pred_annotation],
-        # feed_dict={image: valid_images, keep_probability: 1.0})
+        predprob, pred = sess.run([probability, pred_annotation], feed_dict={image: valid_images, keep_probability: 1.0})
 
         # tf measures
         sess.run(tf.local_variables_initializer())
         feed_dict = {image: valid_images, annotation: valid_annotations, keep_probability: 1.0}
-        predprob, pred, _, __ = sess.run(
-            [probability, pred_annotation, pixel_acc_update_op, mean_iou_update_op], feed_dict=feed_dict)
-        tf_pixel_acc, tf_miou = sess.run([pixel_acc_op, mean_iou_op], feed_dict=feed_dict)
-        tf_pixel_acc_list.append(tf_pixel_acc)
-        tf_miou_list.append(tf_miou)
+        # predprob, pred, _, __ = sess.run([probability, pred_annotation, pixel_acc_update_op, mean_iou_update_op], feed_dict=feed_dict)
+        # tf_pixel_acc, tf_miou = sess.run([pixel_acc_op, mean_iou_op], feed_dict=feed_dict)
+        # tf_pixel_acc_list.append(tf_pixel_acc)
+        # tf_miou_list.append(tf_miou)
 
         np.set_printoptions(threshold=10)
 
@@ -894,9 +892,9 @@ def mode_new_test(sess, flags, save_dir, validation_dataset_reader, valid_record
             fmt='%4i',
             delimiter=',')
 
-        print("\n>>> Prediction results (TF functions):")
-        print("Pixel acc:", np.nanmean(tf_pixel_acc_list))
-        print("mean IoU:", np.nanmean(tf_miou_list))
+        # print("\n>>> Prediction results (TF functions):")
+        # print("Pixel acc:", np.nanmean(tf_pixel_acc_list))
+        # print("mean IoU:", np.nanmean(tf_miou_list))
 
         print("\n>>> Prediction results (Our functions):")
         EvalMetrics.calculate_eval_metrics_from_confusion_matrix(total_cm, num_classes)
