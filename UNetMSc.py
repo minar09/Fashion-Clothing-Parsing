@@ -26,7 +26,7 @@ if DATA_SET == "10k":
         "training_epochs",
         "50",
         "number of epochs for training")
-    tf.flags.DEFINE_string("logs_dir", "logs/UNet_10k/",
+    tf.flags.DEFINE_string("logs_dir", "logs/UNetMSc_10k/",
                            "path to logs directory")
     tf.flags.DEFINE_string(
         "data_dir", "D:/Datasets/Dressup10k/", "path to dataset")
@@ -229,12 +229,12 @@ def main(argv=None):
     image125 = tf.image.resize_images(
         image, [int(IMAGE_SIZE * 1.25), int(IMAGE_SIZE * 1.25)])
 
-    annotation075 = tf.image.resize_images(
-        annotation, [int(IMAGE_SIZE * 0.75), int(IMAGE_SIZE * 0.75)])
-    annotation050 = tf.image.resize_images(
-        annotation, [int(IMAGE_SIZE * 0.5), int(IMAGE_SIZE * 0.5)])
-    annotation125 = tf.image.resize_images(
-        annotation, [int(IMAGE_SIZE * 1.25), int(IMAGE_SIZE * 1.25)])
+    annotation075 = tf.cast(tf.image.resize_images(
+        annotation, [int(IMAGE_SIZE * 0.75), int(IMAGE_SIZE * 0.75)]), tf.int32)
+    annotation050 = tf.cast(tf.image.resize_images(
+        annotation, [int(IMAGE_SIZE * 0.5), int(IMAGE_SIZE * 0.5)]), tf.int32)
+    annotation125 = tf.cast(tf.image.resize_images(
+        annotation, [int(IMAGE_SIZE * 1.25), int(IMAGE_SIZE * 1.25)]), tf.int32)
 
     # 2. construct inference network
     reuse1 = False
