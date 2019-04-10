@@ -896,11 +896,8 @@ def mode_new_test(sess, flags, save_dir, validation_dataset_reader, valid_record
         # print("Pixel acc:", np.nanmean(tf_pixel_acc_list))
         # print("mean IoU:", np.nanmean(tf_miou_list))
 
-        print("\n>>> Prediction results (Our functions):")
+        print("\n>>> Prediction results:")
         EvalMetrics.calculate_eval_metrics_from_confusion_matrix(total_cm, num_classes)
-
-        print("\n>>> Prediction results (LIP functions):")
-        EvalMetrics.show_result(total_cm, num_classes)
 
         # Prediction with CRF
         crf_total_cm = np.sum(crf_cross_mats, axis=0)
@@ -912,11 +909,8 @@ def mode_new_test(sess, flags, save_dir, validation_dataset_reader, valid_record
             delimiter=',')
 
         print("\n")
-        print("\n>>> Prediction results (CRF - Our functions):")
+        print("\n>>> Prediction results (CRF):")
         EvalMetrics.calculate_eval_metrics_from_confusion_matrix(crf_total_cm, num_classes)
-
-        print("\n>>> Prediction results (CRF - LIP functions):")
-        EvalMetrics.show_result(crf_total_cm, num_classes)
 
     except Exception as err:
         print(err)
