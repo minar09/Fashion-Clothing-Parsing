@@ -284,9 +284,9 @@ def main(argv=None):
         attn_output_train = attention(attn_input_train, is_training)
         scale_att_mask = tf.nn.softmax(attn_output_train)
 
-        score_att_x = tf.multiply(logits100, tf.broadcast_to(tf.expand_dims(scale_att_mask[:, :, :, 0], axis=3), tf.shape(logits100)))
-        score_att_x_075 = tf.multiply(tf.image.resize_images(logits075, tf.shape(logits100)[1:3, ]), tf.broadcast_to(tf.expand_dims(scale_att_mask[:, :, :, 1], axis=3), tf.shape(logits100)))
-        score_att_x_050 = tf.multiply(tf.image.resize_images(logits050, tf.shape(logits100)[1:3, ]), tf.broadcast_to(tf.expand_dims(scale_att_mask[:, :, :, 2], axis=3), tf.shape(logits100)))
+        score_att_x = tf.multiply(logits100, tf.expand_dims(scale_att_mask[:, :, :, 0], axis=3))
+        score_att_x_075 = tf.multiply(tf.image.resize_images(logits075, tf.shape(logits100)[1:3, ]), tf.expand_dims(scale_att_mask[:, :, :, 1], axis=3))
+        score_att_x_050 = tf.multiply(tf.image.resize_images(logits050, tf.shape(logits100)[1:3, ]), tf.expand_dims(scale_att_mask[:, :, :, 2], axis=3))
         score_final_train = score_att_x + score_att_x_075 + score_att_x_050
         final_annotation_pred_train = tf.expand_dims(tf.argmax(score_final_train, dimension=3, name="final_prediction"), dim=3)
 
