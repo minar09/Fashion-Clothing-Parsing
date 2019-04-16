@@ -1,0 +1,12 @@
+tensorflow-gpu
+numpy
+scipy
+pillow
+tqdm
+h5py
+pandas
+matplotlib
+pydensecrf
+opencv-python
+sklearn
+scikit-image

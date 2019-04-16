@@ -24,9 +24,9 @@ if DATA_SET == "10k":
     tf.flags.DEFINE_integer("batch_size", "2", "batch size for training")
     tf.flags.DEFINE_integer(
         "training_epochs",
-        "100",
+        "50",
         "number of epochs for training")
-    tf.flags.DEFINE_string("logs_dir", "logs/UNetMSc_10k/",
+    tf.flags.DEFINE_string("logs_dir", "logs/UNetAttention_10k/",
                            "path to logs directory")
     tf.flags.DEFINE_string(
         "data_dir", "D:/Datasets/Dressup10k/", "path to dataset")
@@ -82,12 +82,13 @@ IMAGE_SIZE = 384
 TEST_DIR = FLAGS.logs_dir + "TestImage/"
 VIS_DIR = FLAGS.logs_dir + "VisImage/"
 
+
 """
   UNET
 """
 
 
-def unetinference(image, keep_prob):
+def unetinference(image, keep_prob=0.5, is_training=False):
     net = {}
     l2_reg = FLAGS.learning_rate
     # added for resume better
@@ -98,7 +99,6 @@ def unetinference(image, keep_prob):
         teacher = tf.placeholder(
             tf.float32, [
                 None, IMAGE_SIZE, IMAGE_SIZE, NUM_OF_CLASSES])
-        is_training = True
 
         # 1, 1, 3
         conv1_1 = Utils.conv(
@@ -180,8 +180,25 @@ def unetinference(image, keep_prob):
                 1, 1], activation=None)
         annotation_pred = tf.argmax(outputs, dimension=3, name="prediction")
 
-        return tf.expand_dims(annotation_pred, dim=3), outputs, net
+        return tf.expand_dims(annotation_pred, dim=3), outputs, net, conv_up4_2
         # return Model(inputs, outputs, teacher, is_training)
+
+
+"""
+    Attention model
+"""
+
+
+def attention(scale_input, is_training=False):
+    l2_reg = FLAGS.learning_rate
+    dropout_ratio = 0
+    if is_training is True:
+        dropout_ratio = 0.5
+
+    conv1 = Utils.conv(scale_input, filters=32, l2_reg_scale=l2_reg)
+    conv1 = Utils.dropout(conv1, dropout_ratio)
+    conv2 = Utils.conv(conv1, filters=3, kernel_size=[1, 1], l2_reg_scale=l2_reg)
+    return conv2
 
 
 """inference
@@ -203,7 +220,7 @@ def train(loss_val, var_list, global_step):
 
 def main(argv=None):
     # 1. input placeholders
-    keep_probability = tf.placeholder(tf.float32, name="keep_probabilty")
+    keep_probability = tf.placeholder(tf.float32, name="keep_probability")
     image = tf.placeholder(
         tf.float32,
         shape=(
@@ -221,6 +238,9 @@ def main(argv=None):
             1),
         name="annotation")
     # global_step = tf.Variable(0, trainable=False, name='global_step')
+    is_training = False
+    if FLAGS.mode == "train":
+        is_training = True
 
     image075 = tf.image.resize_images(
         image, [int(IMAGE_SIZE * 0.75), int(IMAGE_SIZE * 0.75)])
@@ -241,41 +261,52 @@ def main(argv=None):
     reuse2 = True
 
     with tf.variable_scope('', reuse=reuse1):
-        pred_annotation100, logits100, net100 = unetinference(image, keep_probability)
+        pred_annotation100, logits100, net100, att100 = unetinference(image, keep_probability, is_training=is_training)
     with tf.variable_scope('', reuse=reuse2):
-        pred_annotation075, logits075, net075 = unetinference(image075, keep_probability)
+        pred_annotation075, logits075, net075, att075 = unetinference(image075, keep_probability, is_training=is_training)
     with tf.variable_scope('', reuse=reuse2):
-        pred_annotation050, logits050, net050 = unetinference(image050, keep_probability)
+        pred_annotation050, logits050, net050, att050 = unetinference(image050, keep_probability, is_training=is_training)
     with tf.variable_scope('', reuse=reuse2):
-        pred_annotation125, logits125, net125 = unetinference(image125, keep_probability)
+        pred_annotation125, logits125, net125, att125 = unetinference(image125, keep_probability, is_training=is_training)
 
-    logits = tf.reduce_mean(tf.stack([logits100,
-                                            tf.image.resize_images(logits075,
-                                                                   tf.shape(logits100)[1:3, ]),
-                                            tf.image.resize_images(logits050,
-                                                                   tf.shape(logits100)[1:3, ])]),
-                                  axis=0)
+    # apply attention model - train
+    score_final_train = None
+    score_final_test = None
+    final_annotation_pred_train = None
+    final_annotation_pred_test = None
 
-    pred_annotation = tf.reduce_mean(tf.stack([tf.cast(pred_annotation100, tf.float32),
-                                      tf.image.resize_images(pred_annotation075,
-                                                             tf.shape(pred_annotation100)[1:3, ]),
-                                      tf.image.resize_images(pred_annotation050,
-                                                             tf.shape(pred_annotation100)[1:3, ])]),
-                            axis=0)
+    if FLAGS.mode == "train":
+        attn_input = []
+        attn_input.append(att100)
+        attn_input.append(tf.image.resize_images(att075, tf.shape(att100)[1:3, ]))
+        attn_input.append(tf.image.resize_images(att050, tf.shape(att100)[1:3, ]))
+        attn_input_train = tf.concat(attn_input, axis=3)
+        attn_output_train = attention(attn_input_train, is_training)
+        scale_att_mask = tf.nn.softmax(attn_output_train)
 
-    pred_annotation_pred = tf.reduce_mean(tf.stack([tf.cast(pred_annotation100, tf.float32),
-                                      tf.image.resize_images(pred_annotation075,
-                                                             tf.shape(pred_annotation100)[1:3, ]),
-                                      tf.image.resize_images(pred_annotation125,
-                                                             tf.shape(pred_annotation100)[1:3, ])]),
-                            axis=0)
+        score_att_x = tf.multiply(logits100, tf.broadcast_to(tf.expand_dims(scale_att_mask[:, :, :, 0], axis=3), tf.shape(logits100)))
+        score_att_x_075 = tf.multiply(tf.image.resize_images(logits075, tf.shape(logits100)[1:3, ]), tf.broadcast_to(tf.expand_dims(scale_att_mask[:, :, :, 1], axis=3), tf.shape(logits100)))
+        score_att_x_050 = tf.multiply(tf.image.resize_images(logits050, tf.shape(logits100)[1:3, ]), tf.broadcast_to(tf.expand_dims(scale_att_mask[:, :, :, 2], axis=3), tf.shape(logits100)))
+        score_final_train = score_att_x + score_att_x_075 + score_att_x_050
+        final_annotation_pred_train = tf.expand_dims(tf.argmax(score_final_train, dimension=3, name="final_prediction"), dim=3)
 
-    logits_pred = tf.reduce_mean(tf.stack([logits100,
-                                           tf.image.resize_images(logits075,
-                                                                  tf.shape(logits100)[1:3, ]),
-                                           tf.image.resize_images(logits125,
-                                                                  tf.shape(logits100)[1:3, ])]),
-                                 axis=0)
+    else:
+        # apply attention model - test
+        attn_input = []
+        attn_input.append(att100)
+        attn_input.append(tf.image.resize_images(att075, tf.shape(att100)[1:3, ]))
+        attn_input.append(tf.image.resize_images(att125, tf.shape(att100)[1:3, ]))
+        attn_input_test = tf.concat(attn_input, axis=3)
+        attn_output_test = attention(attn_input_test, is_training)
+        scale_att_mask = tf.nn.softmax(attn_output_test)
+
+        score_att_x = tf.matmul(logits100, scale_att_mask[:, 0, :, :])
+        score_att_x_075 = tf.matmul(tf.image.resize_images(logits075, tf.shape(logits100)[1:3, ]),
+                                    scale_att_mask[:, 1, :, :])
+        score_att_x_125 = tf.matmul(tf.image.resize_images(logits125, tf.shape(logits100)[1:3, ]),
+                                    scale_att_mask[:, 2, :, :])
+        score_final_test = score_att_x + score_att_x_075 + score_att_x_125
+        final_annotation_pred_test = tf.expand_dims(tf.argmax(score_final_test, dimension=3, name="final_prediction"), dim=3)
 
     tf.summary.image("input_image", image, max_outputs=3)
     tf.summary.image(
@@ -295,7 +326,7 @@ def main(argv=None):
     # 3. loss measure
     loss = tf.reduce_mean(
         (tf.nn.sparse_softmax_cross_entropy_with_logits(
-            logits=logits,
+            logits=score_final_train,
             labels=tf.squeeze(
                 annotation,
                 squeeze_dims=[3]),
@@ -403,21 +434,21 @@ def main(argv=None):
     if FLAGS.mode == "train":
 
         fd.mode_train(sess, FLAGS, net100, train_dataset_reader, validation_dataset_reader, train_records,
-                      pred_annotation,
-                      image, annotation, keep_probability, logits, train_op, reduced_loss, summary_op, summary_writer,
+                      final_annotation_pred_train,
+                      image, annotation, keep_probability, score_final_train, train_op, reduced_loss, summary_op, summary_writer,
                       saver, DISPLAY_STEP)
 
     # test-random-validation-data mode
     elif FLAGS.mode == "visualize":
 
         fd.mode_visualize(sess, FLAGS, VIS_DIR, validation_dataset_reader,
-                          pred_annotation_pred, image, annotation, keep_probability, NUM_OF_CLASSES)
+                          final_annotation_pred_test, image, annotation, keep_probability, NUM_OF_CLASSES)
 
     # test-full-validation-dataset mode
     elif FLAGS.mode == "test":
 
         fd.mode_new_test(sess, FLAGS, TEST_DIR, test_dataset_reader, test_records,
-                         pred_annotation_pred, image, annotation, keep_probability, logits_pred, NUM_OF_CLASSES)
+                         final_annotation_pred_test, image, annotation, keep_probability, score_final_test, NUM_OF_CLASSES)
 
         # fd.mode_test(sess, FLAGS, TEST_DIR, test_dataset_reader, test_records,
         # pred_annotation, image, annotation, keep_probability, logits, NUM_OF_CLASSES)
@@ -425,17 +456,17 @@ def main(argv=None):
     elif FLAGS.mode == "crftest":
 
         fd.mode_predonly(sess, FLAGS, TEST_DIR, test_dataset_reader, test_records,
-                         pred_annotation_pred, image, annotation, keep_probability, logits_pred, NUM_OF_CLASSES)
+                         final_annotation_pred_test, image, annotation, keep_probability, score_final_test, NUM_OF_CLASSES)
 
     elif FLAGS.mode == "predonly":
 
         fd.mode_predonly(sess, FLAGS, TEST_DIR, test_dataset_reader, test_records,
-                         pred_annotation_pred, image, annotation, keep_probability, logits_pred, NUM_OF_CLASSES)
+                         final_annotation_pred_test, image, annotation, keep_probability, score_final_test, NUM_OF_CLASSES)
 
     elif FLAGS.mode == "fulltest":
 
         fd.mode_full_test(sess, FLAGS, TEST_DIR, test_dataset_reader, test_records,
-                          pred_annotation_pred, image, annotation, keep_probability, logits_pred, NUM_OF_CLASSES)
+                          final_annotation_pred_test, image, annotation, keep_probability, score_final_test, NUM_OF_CLASSES)
 
     sess.close()
 

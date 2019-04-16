@@ -611,6 +611,12 @@ def pool(inputs):
     return pooled
 
 
+def dropout(inputs, prob):
+    dropout_applied = tf.nn.dropout(
+        inputs=inputs, rate=prob)
+    return dropout_applied
+
+
 def conv_transpose(inputs, filters, l2_reg_scale=None):
     if l2_reg_scale is None:
         regularizer = None
