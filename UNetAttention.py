@@ -291,7 +291,15 @@ def main(argv=None):
         score_att_x_075 = tf.multiply(tf.image.resize_images(logits075, tf.shape(logits100)[1:3, ]), tf.expand_dims(scale_att_mask[:, :, :, 1], axis=3))
         score_att_x_050 = tf.multiply(tf.image.resize_images(logits050, tf.shape(logits100)[1:3, ]), tf.expand_dims(scale_att_mask[:, :, :, 2], axis=3))
         score_final_train = score_att_x + score_att_x_075 + score_att_x_050
-        final_annotation_pred_train = tf.expand_dims(tf.argmax(score_final_train, dimension=3, name="final_prediction"), dim=3)
+
+        final_annotation_pred = tf.expand_dims(tf.argmax(score_final_train, dimension=3, name="final_prediction"), dim=3)
+        final_annotation_pred_train = tf.reduce_mean(
+            tf.stack([tf.cast(final_annotation_pred, tf.float32), tf.cast(pred_annotation100, tf.float32),
+                      tf.image.resize_images(pred_annotation075,
+                                             tf.shape(pred_annotation100)[1:3, ]),
+                      tf.image.resize_images(pred_annotation050,
+                                             tf.shape(pred_annotation100)[1:3, ])]),
+            axis=0)
 
         # 3. loss measure
         loss = tf.reduce_mean(
@@ -356,7 +364,14 @@ def main(argv=None):
         score_att_x_125 = tf.multiply(tf.image.resize_images(logits125, tf.shape(logits100)[1:3, ]),
                                       tf.expand_dims(scale_att_mask[:, :, :, 2], axis=3))
         score_final_test = score_att_x + score_att_x_075 + score_att_x_125
-        final_annotation_pred_test = tf.expand_dims(tf.argmax(score_final_test, dimension=3, name="final_prediction"), dim=3)
+
+        final_annotation_pred = tf.expand_dims(tf.argmax(score_final_test, dimension=3, name="final_prediction"), dim=3)
+        final_annotation_pred_test = tf.reduce_mean(tf.stack([tf.cast(final_annotation_pred, tf.float32), tf.cast(pred_annotation100, tf.float32),
+                                                        tf.image.resize_images(pred_annotation075,
+                                                                               tf.shape(pred_annotation100)[1:3, ]),
+                                                        tf.image.resize_images(pred_annotation125,
+                                                                               tf.shape(pred_annotation100)[1:3, ])]),
+                                              axis=0)
 
     tf.summary.image("input_image", image, max_outputs=3)
     tf.summary.image(
