@@ -275,6 +275,9 @@ def main(argv=None):
     final_annotation_pred_train = None
     final_annotation_pred_test = None
 
+    train_op = None
+    reduced_loss = None
+
     if FLAGS.mode == "train":
         attn_input = []
         attn_input.append(att100)
@@ -290,6 +293,53 @@ def main(argv=None):
         score_final_train = score_att_x + score_att_x_075 + score_att_x_050
         final_annotation_pred_train = tf.expand_dims(tf.argmax(score_final_train, dimension=3, name="final_prediction"), dim=3)
 
+        # 3. loss measure
+        loss = tf.reduce_mean(
+            (tf.nn.sparse_softmax_cross_entropy_with_logits(
+                logits=score_final_train,
+                labels=tf.squeeze(
+                    annotation,
+                    squeeze_dims=[3]),
+                name="entropy")))
+        tf.summary.scalar("entropy", loss)
+
+        loss100 = tf.reduce_mean(
+            (tf.nn.sparse_softmax_cross_entropy_with_logits(
+                logits=logits100,
+                labels=tf.squeeze(
+                    annotation,
+                    squeeze_dims=[3]),
+                name="entropy")))
+        tf.summary.scalar("entropy", loss100)
+
+        loss075 = tf.reduce_mean(
+            (tf.nn.sparse_softmax_cross_entropy_with_logits(
+                logits=logits075,
+                labels=tf.squeeze(
+                    annotation075,
+                    squeeze_dims=[3]),
+                name="entropy")))
+        tf.summary.scalar("entropy", loss075)
+
+        loss050 = tf.reduce_mean(
+            (tf.nn.sparse_softmax_cross_entropy_with_logits(
+                logits=logits050,
+                labels=tf.squeeze(
+                    annotation050,
+                    squeeze_dims=[3]),
+                name="entropy")))
+        tf.summary.scalar("entropy", loss050)
+
+        reduced_loss = loss + loss100 + loss075 + loss050
+
+        # 4. optimizing
+        trainable_var = tf.trainable_variables()
+        if FLAGS.debug:
+            for var in trainable_var:
+                Utils.add_to_regularization_and_summary(var)
+
+        train_op = train(reduced_loss, trainable_var, net100['global_step'])
+
     else:
         # apply attention model - test
         attn_input = []
@@ -300,11 +350,11 @@ def main(argv=None):
         attn_output_test = attention(attn_input_test, is_training)
         scale_att_mask = tf.nn.softmax(attn_output_test)
 
-        score_att_x = tf.matmul(logits100, scale_att_mask[:, 0, :, :])
-        score_att_x_075 = tf.matmul(tf.image.resize_images(logits075, tf.shape(logits100)[1:3, ]),
-                                    scale_att_mask[:, 1, :, :])
-        score_att_x_125 = tf.matmul(tf.image.resize_images(logits125, tf.shape(logits100)[1:3, ]),
-                                    scale_att_mask[:, 2, :, :])
+        score_att_x = tf.multiply(logits100, tf.expand_dims(scale_att_mask[:, :, :, 0], axis=3))
+        score_att_x_075 = tf.multiply(tf.image.resize_images(logits075, tf.shape(logits100)[1:3, ]),
+                                      tf.expand_dims(scale_att_mask[:, :, :, 1], axis=3))
+        score_att_x_125 = tf.multiply(tf.image.resize_images(logits125, tf.shape(logits100)[1:3, ]),
+                                      tf.expand_dims(scale_att_mask[:, :, :, 2], axis=3))
         score_final_test = score_att_x + score_att_x_075 + score_att_x_125
         final_annotation_pred_test = tf.expand_dims(tf.argmax(score_final_test, dimension=3, name="final_prediction"), dim=3)
 
@@ -322,53 +372,6 @@ def main(argv=None):
             pred_annotation100,
             tf.uint8),
         max_outputs=3)
-
-    # 3. loss measure
-    loss = tf.reduce_mean(
-        (tf.nn.sparse_softmax_cross_entropy_with_logits(
-            logits=score_final_train,
-            labels=tf.squeeze(
-                annotation,
-                squeeze_dims=[3]),
-            name="entropy")))
-    tf.summary.scalar("entropy", loss)
-
-    loss100 = tf.reduce_mean(
-        (tf.nn.sparse_softmax_cross_entropy_with_logits(
-            logits=logits100,
-            labels=tf.squeeze(
-                annotation,
-                squeeze_dims=[3]),
-            name="entropy")))
-    tf.summary.scalar("entropy", loss100)
-
-    loss075 = tf.reduce_mean(
-        (tf.nn.sparse_softmax_cross_entropy_with_logits(
-            logits=logits075,
-            labels=tf.squeeze(
-                annotation075,
-                squeeze_dims=[3]),
-            name="entropy")))
-    tf.summary.scalar("entropy", loss075)
-
-    loss050 = tf.reduce_mean(
-        (tf.nn.sparse_softmax_cross_entropy_with_logits(
-            logits=logits050,
-            labels=tf.squeeze(
-                annotation050,
-                squeeze_dims=[3]),
-            name="entropy")))
-    tf.summary.scalar("entropy", loss050)
-
-    reduced_loss = loss + loss100 + loss075 + loss050
-
-    # 4. optimizing
-    trainable_var = tf.trainable_variables()
-    if FLAGS.debug:
-        for var in trainable_var:
-            Utils.add_to_regularization_and_summary(var)
-
-    train_op = train(reduced_loss, trainable_var, net100['global_step'])
 
     print("Setting up summary op...")
     summary_op = tf.summary.merge_all()
