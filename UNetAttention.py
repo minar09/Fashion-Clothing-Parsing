@@ -180,7 +180,7 @@ def unetinference(image, keep_prob=0.5, is_training=False):
                 1, 1], activation=None)
         annotation_pred = tf.argmax(outputs, dimension=3, name="prediction")
 
-        return tf.expand_dims(annotation_pred, dim=3), outputs, net, conv_up4_2
+        return tf.expand_dims(annotation_pred, dim=3), outputs, net, conv5_2
         # return Model(inputs, outputs, teacher, is_training)
 
 
@@ -195,7 +195,7 @@ def attention(scale_input, is_training=False):
     if is_training is True:
         dropout_ratio = 0.5
 
-    conv1 = Utils.conv(scale_input, filters=32, l2_reg_scale=l2_reg)
+    conv1 = Utils.conv(scale_input, filters=512, l2_reg_scale=l2_reg)
     conv1 = Utils.dropout(conv1, dropout_ratio)
     conv2 = Utils.conv(conv1, filters=3, kernel_size=[1, 1], l2_reg_scale=l2_reg)
     return conv2
@@ -287,9 +287,9 @@ def main(argv=None):
         attn_output_train = attention(attn_input_train, is_training)
         scale_att_mask = tf.nn.softmax(attn_output_train)
 
-        score_att_x = tf.multiply(logits100, tf.expand_dims(scale_att_mask[:, :, :, 0], axis=3))
-        score_att_x_075 = tf.multiply(tf.image.resize_images(logits075, tf.shape(logits100)[1:3, ]), tf.expand_dims(scale_att_mask[:, :, :, 1], axis=3))
-        score_att_x_050 = tf.multiply(tf.image.resize_images(logits050, tf.shape(logits100)[1:3, ]), tf.expand_dims(scale_att_mask[:, :, :, 2], axis=3))
+        score_att_x = tf.multiply(logits100, tf.image.resize_images(tf.expand_dims(scale_att_mask[:, :, :, 0], axis=3), tf.shape(logits100)[1:3, ]))
+        score_att_x_075 = tf.multiply(tf.image.resize_images(logits075, tf.shape(logits100)[1:3, ]), tf.image.resize_images(tf.expand_dims(scale_att_mask[:, :, :, 1], axis=3), tf.shape(logits100)[1:3, ]))
+        score_att_x_050 = tf.multiply(tf.image.resize_images(logits050, tf.shape(logits100)[1:3, ]), tf.image.resize_images(tf.expand_dims(scale_att_mask[:, :, :, 2], axis=3), tf.shape(logits100)[1:3, ]))
         score_final_train = score_att_x + score_att_x_075 + score_att_x_050
 
         final_annotation_pred = tf.expand_dims(tf.argmax(score_final_train, dimension=3, name="final_prediction"), dim=3)
