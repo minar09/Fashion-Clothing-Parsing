@@ -17,19 +17,7 @@ import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 
-"""
-# color map for LIP
-LIP_colors = [(0, 0, 0)                 # 0=Background
-              # 1=Hat,  2=Hair,    3=Glove, 4=Sunglasses, 5=UpperClothes
-              # 6=Dress, 7=Coat, 8=Socks, 9=Pants, 10=Jumpsuits
-              # 11=Scarf, 12=Skirt, 13=Face, 14=LeftArm, 15=RightArm
-              , (128, 0, 0), (255, 0, 0), (0, 85, 0), (170, 0, 51), (255, 85, 0), (0, 0, 85), (0, 119, 221), (85, 85, 0), (0, 85, 85), (85, 51, 0), (52, 86, 128), (0, 128, 0), (0, 0, 255), (51, 170, 221), (0, 255, 255), (85, 255, 170), (170, 255, 85), (255, 255, 0), (255, 170, 0)]
-cmap_name = 'lip_cmap'
-n_bins = [3, 6, 10, 100]  # Discretizes the interpolation into bins
-# lip_cm = LinearSegmentedColormap.from_list(cmap_name, LIP_colors, N=n_bin)
-"""
-
-label_colors = ['black',  # "background", #     0
+label_colors_10k = ['black',  # "background", #     0
                 'sienna',  # "hat", #            1
                 'gray',  # "hair", #           2
                 'navy',  # "sunglass", #       3
@@ -39,17 +27,41 @@ label_colors = ['black',  # "background", #     0
                 'seagreen',  # "dress", #          7
                 'darkorchid',  # "belt", #           8
                 'firebrick',  # "left-shoe", #      9
-                'darksalmon',  # "right-shoe", #     10
-                'moccasin',  # "face",  #           11
-                'darkgreen',  # "left-leg", #       12
-                'royalblue',  # "right-leg", #      13
-                'chartreuse',  # "left-arm",#       14
-                'paleturquoise',  # "right-arm", #      15
-                'darkcyan',  # "bag", #            16
-                'deepskyblue'  # "scarf" #          17
-                ]
-clothnorm = BoundaryNorm([-0.5, 0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5,
-                          7.5, 8.5, 9.5, 10.5, 11.5, 12.5, 13.5, 14.5, 15.5, 16.5, 17.5], 18)
+                    'darksalmon',  # "right-shoe", #     10
+                    'moccasin',  # "face",  #           11
+                    'darkgreen',  # "left-leg", #       12
+                    'royalblue',  # "right-leg", #      13
+                    'chartreuse',  # "left-arm",#       14
+                    'paleturquoise',  # "right-arm", #      15
+                    'darkcyan',  # "bag", #            16
+                    'deepskyblue'  # "scarf" #          17
+                    ]
+
+clothnorm_10k = BoundaryNorm([-0.5, 0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5,
+                              7.5, 8.5, 9.5, 10.5, 11.5, 12.5, 13.5, 14.5, 15.5, 16.5, 17.5], 18)
+
+# colour map for LIP dataset
+lip_label_colours = [(0, 0, 0),  # 0=Background
+                     (128, 0, 0),  # 1=Hat
+                     (255, 0, 0),  # 2=Hair
+                     (0, 85, 0),  # 3=Glove
+                     (170, 0, 51),  # 4=Sunglasses
+                     (255, 85, 0),  # 5=UpperClothes
+                     (0, 0, 85),  # 6=Dress
+                     (0, 119, 221),  # 7=Coat
+                     (85, 85, 0),  # 8=Socks
+                     (0, 85, 85),  # 9=Pants
+                     (85, 51, 0),  # 10=Jumpsuits
+                     (52, 86, 128),  # 11=Scarf
+                     (0, 128, 0),  # 12=Skirt
+                     (0, 0, 255),  # 13=Face
+                     (51, 170, 221),  # 14=LeftArm
+                     (0, 255, 255),  # 15=RightArm
+                     (85, 255, 170),  # 16=LeftLeg
+                     (170, 255, 85),  # 17=RightLeg
+                     (255, 255, 0),  # 18=LeftShoe
+                     (255, 170, 0)  # 19=RightShoe
+                     ]
 
 
 """
@@ -586,7 +598,7 @@ def mode_full_test(sess, flags, save_dir, validation_dataset_reader, valid_recor
             plt.subplot(pos)
             # plt.imshow(valid_annotations[itr2].astype(np.uint8), cmap=plt.get_cmap('nipy_spectral'))
             plt.imshow(valid_annotations[itr2].astype(
-                np.uint8), cmap=ListedColormap(label_colors), norm=clothnorm)
+                np.uint8), cmap=ListedColormap(label_colors_10k), norm=clothnorm_10k)
             plt.axis('off')
             plt.title('GT')
 
@@ -594,7 +606,7 @@ def mode_full_test(sess, flags, save_dir, validation_dataset_reader, valid_recor
             plt.subplot(pos)
             # plt.imshow(pred[itr2].astype(np.uint8), cmap=plt.get_cmap('nipy_spectral'))
             plt.imshow(pred[itr2].astype(np.uint8),
-                       cmap=ListedColormap(label_colors), norm=clothnorm)
+                       cmap=ListedColormap(label_colors_10k), norm=clothnorm_10k)
             plt.axis('off')
             plt.title('Prediction')
 
@@ -682,7 +694,7 @@ def mode_full_test(sess, flags, save_dir, validation_dataset_reader, valid_recor
             plt.subplot(pos)
             # plt.imshow(crfwithprobsoutput.astype(np.uint8), cmap=plt.get_cmap('nipy_spectral'))
             plt.imshow(crfwithprobsoutput.astype(np.uint8),
-                       cmap=ListedColormap(label_colors), norm=clothnorm)
+                       cmap=ListedColormap(label_colors_10k), norm=clothnorm_10k)
             plt.axis('off')
             plt.title('Prediction + CRF (prob)')
 
@@ -690,7 +702,7 @@ def mode_full_test(sess, flags, save_dir, validation_dataset_reader, valid_recor
             plt.subplot(pos)
             # plt.imshow(crfwithlabeloutput.astype(np.uint8), cmap=plt.get_cmap('nipy_spectral'))
             plt.imshow(crfwithlabeloutput.astype(np.uint8),
-                       cmap=ListedColormap(label_colors), norm=clothnorm)
+                       cmap=ListedColormap(label_colors_10k), norm=clothnorm_10k)
             plt.axis('off')
             plt.title('Prediction + CRF (label)')
 
@@ -797,7 +809,7 @@ def mode_new_test(sess, flags, save_dir, validation_dataset_reader, valid_record
             plt.subplot(pos)
             # plt.imshow(valid_annotations[itr2].astype(np.uint8), cmap=plt.get_cmap('nipy_spectral'))
             plt.imshow(valid_annotations[itr2].astype(
-                np.uint8), cmap=ListedColormap(label_colors), norm=clothnorm)
+                np.uint8), cmap=ListedColormap(label_colors_10k), norm=clothnorm_10k)
             plt.axis('off')
             plt.title('GT')
 
@@ -805,7 +817,7 @@ def mode_new_test(sess, flags, save_dir, validation_dataset_reader, valid_record
             plt.subplot(pos)
             # plt.imshow(pred[itr2].astype(np.uint8), cmap=plt.get_cmap('nipy_spectral'))
             plt.imshow(pred[itr2].astype(np.uint8),
-                       cmap=ListedColormap(label_colors), norm=clothnorm)
+                       cmap=ListedColormap(label_colors_10k), norm=clothnorm_10k)
             plt.axis('off')
             plt.title('Prediction')
 
@@ -873,7 +885,7 @@ def mode_new_test(sess, flags, save_dir, validation_dataset_reader, valid_record
             plt.subplot(pos)
             # plt.imshow(crfwithprobsoutput.astype(np.uint8), cmap=plt.get_cmap('nipy_spectral'))
             plt.imshow(crfwithprobsoutput.astype(np.uint8),
-                       cmap=ListedColormap(label_colors), norm=clothnorm)
+                       cmap=ListedColormap(label_colors_10k), norm=clothnorm_10k)
             plt.axis('off')
             plt.title('Prediction + CRF')
 

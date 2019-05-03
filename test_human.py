@@ -12,8 +12,7 @@ def main():
 
 
 def init_path():
-
-    data_dir = "logs/UNet_10k/TestImage/"
+    data_dir = "logs/UNetMSc_10k/TestImage/"
 
     file_names = os.listdir(data_dir)
 
@@ -21,10 +20,9 @@ def init_path():
     val_pred_paths = []
 
     for file_name in tqdm(file_names):
-        if file_name.startswith("probcrf_"):
-            # if file_name.startswith("labelcrf_"):
+        if file_name.startswith("pred_") and "_vis" not in file_name:
             val_pred_paths.append(os.path.join(data_dir, file_name))
-        elif file_name.startswith("gt_"):
+        elif file_name.startswith("gt_") and "_vis" not in file_name:
             val_gt_paths.append(os.path.join(data_dir, file_name))
 
     return val_pred_paths, val_gt_paths
@@ -32,7 +30,7 @@ def init_path():
 
 def fast_hist(a, b, n):
     k = (a >= 0) & (a < n)
-    return np.bincount(n * a[k].astype(int) + b[k], minlength=n**2).reshape(n, n)
+    return np.bincount(n * a[k].astype(int) + b[k], minlength=n ** 2).reshape(n, n)
 
 
 def compute_hist(images, labels):
@@ -58,20 +56,22 @@ def compute_hist(images, labels):
         crossMats.append(cm)
 
     T_CM = np.sum(crossMats, axis=0)
-    np.savetxt("logs/UNet_10k/labelcrf_totalCM.csv",
-               T_CM, fmt='%4i', delimiter=',')
+    # np.savetxt("logs/UNet_10k/labelcrf_totalCM.csv", T_CM, fmt='%4i', delimiter=',')
     print(EM.calculate_eval_metrics_from_confusion_matrix(T_CM, n_cl))
 
     return hist
 
 
 def show_result(hist):
-    np.savetxt("logs/UNet_10k/label_crf_totalCM.csv",
-               hist, fmt='%4i', delimiter=',')
+    # np.savetxt("logs/UNet_10k/totalCM.csv", hist, fmt='%4i', delimiter=',')
 
-    classes = ['bk', 'T-shirt', 'bag', 'belt', 'blazer', 'blouse', 'coat', 'dress', 'face', 'hair',
-               'hat', 'jeans', 'legging', 'pants', 'scarf', 'shoe', 'shorts', 'skin', 'skirt',
-               'socks', 'stocking', 'sunglass', 'sweater']
+    classes = ['background', 'hat', 'hair', 'sunglasses', 'upperclothes', 'skirt', 'pants', 'dress',
+               'belt', 'leftShoe', 'rightShoe', 'face', 'leftLeg', 'rightLeg', 'leftArm', 'rightArm', 'bag', 'scarf']
+
+    # classes = ['bk', 'T-shirt', 'bag', 'belt', 'blazer', 'blouse', 'coat', 'dress', 'face', 'hair',
+    # 'hat', 'jeans', 'legging', 'pants', 'scarf', 'shoe', 'shorts', 'skin', 'skirt',
+    # 'socks', 'stocking', 'sunglass', 'sweater']
+
     # num of correct pixels
     num_cor_pix = np.diag(hist)
     # num of gt pixels

@@ -32,23 +32,23 @@ if DATA_SET == "10k":
         "data_dir", "D:/Datasets/Dressup10k/", "path to dataset")
 
 if DATA_SET == "CFPD":
-    tf.flags.DEFINE_integer("batch_size", "38", "batch size for training")
+    tf.flags.DEFINE_integer("batch_size", "2", "batch size for training")
     tf.flags.DEFINE_integer(
         "training_epochs",
-        "70",
+        "100",
         "number of epochs for training")
-    tf.flags.DEFINE_string("logs_dir", "logs/UNet_CFPD/",
+    tf.flags.DEFINE_string("logs_dir", "logs/UNetMSc_CFPD/",
                            "path to logs directory")
     tf.flags.DEFINE_string(
         "data_dir", "D:/Datasets/CFPD/", "path to dataset")
 
 if DATA_SET == "LIP":
-    tf.flags.DEFINE_integer("batch_size", "40", "batch size for training")
+    tf.flags.DEFINE_integer("batch_size", "2", "batch size for training")
     tf.flags.DEFINE_integer(
         "training_epochs",
         "30",
         "number of epochs for training")
-    tf.flags.DEFINE_string("logs_dir", "logs/UNet_LIP/",
+    tf.flags.DEFINE_string("logs_dir", "logs/UNetMSc_LIP/",
                            "path to logs directory")
     tf.flags.DEFINE_string(
         "data_dir", "D:/Datasets/LIP/", "path to dataset")

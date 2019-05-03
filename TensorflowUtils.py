@@ -59,27 +59,6 @@ dressup10k_label_colors = [(0, 0, 0),  # 'black', #  "background", #     0
                            (0, 191, 255),  # 'deepskyblue' #"scarf" #          17
                            ]
 
-# like LIP
-fashion_label_colours = [(0, 0, 0),  # 0=Background
-                         (128, 0, 0),  # hat
-                         (255, 0, 0),  # hair
-                         (170, 0, 51),  # sunglasses
-                         (255, 85, 0),  # upper-clothes
-                         (0, 128, 0),  # skirt
-                         (0, 85, 85),  # pants
-                         (0, 0, 85),  # dress
-                         (0, 85, 0),  # belt
-                         (255, 255, 0),  # Left-shoe
-                         (255, 170, 0),  # Right-shoe
-                         (0, 0, 255),  # face
-                         (85, 255, 170),  # left-leg
-                         (170, 255, 85),  # right-leg
-                         (51, 170, 221),  # left-arm
-                         (0, 255, 255),  # right-arm
-                         (85, 51, 0),  # bag
-                         (52, 86, 128)  # scarf
-                         ]
-
 # Utils used with tensorflow implemetation
 
 DEFAULT_PADDING = 'SAME'
