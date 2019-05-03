@@ -80,8 +80,8 @@ The implementation is largely based on the reference code provided by the author
 
 ## CRF
  - Running testing will apply CRF by default.
- - If you want to run standalone, run `python denseCRF`, after setting your paths.
+ - If you want to run standalone, run `python denseCRF.py`, after setting your paths.
 
 ## BFSCORE
- - Run `python bfscore`, after setting your paths.
+ - Run `python bfscore.py`, after setting your paths.
  - For more details, visit https://github.com/minar09/bfscore_python
