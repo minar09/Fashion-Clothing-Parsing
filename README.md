@@ -11,7 +11,7 @@ The implementation is largely based on the reference code provided by the author
 6. [CRF](#crf)
 7. [BFSCORE](#bfscore)
 
-# Directory Structure
+## Directory Structure
 
 ```bash
 ├── parseDemo20180417
@@ -61,7 +61,7 @@ The implementation is largely based on the reference code provided by the author
  - [CFPD](https://github.com/hrsma2i/dataset-CFPD) (For preparing CFPD dataset, you can visit here: https://github.com/minar09/dataset-CFPD-windows)
  - [LIP](http://www.sysu-hcp.net/lip/)
  - 10k (Fashion)
- - If you want to use your own dataset, please create your dataset reader. (Check read_CFPD_data.py for example, on how to put directory and stuff)
+ - If you want to use your own dataset, please create your dataset reader. (Check `read_CFPD_data.py` for example, on how to put directory and stuff)
 
 ## Training
  - To train model simply execute `python FCN.py` or `python UNet.py`
