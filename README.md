@@ -12,11 +12,12 @@ The implementation is largely based on the reference code provided by the author
 6. [CRF](#crf)
 7. [BFSCORE](#bfscore)
 
+
 ## Directory Structure
 
 ```bash
 ├── parseDemo20180417
-│   ├── clothparsing.py
+│   └── clothparsing.py
 ├── tests
 │   ├── __init__.py
 │   ├── gt.png
