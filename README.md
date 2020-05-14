@@ -1,5 +1,5 @@
 # Fashion parsing models in TensorFlow
-This is the source code for our paper for Fashion Clothing Parsing. (Link coming soon)
+This is the source code of our project for Fashion Clothing Parsing. (EMCOM Lab, SeoulTech, Korea)
 1. Tensorflow implementation of [Fully Convolutional Networks for Semantic Segmentation](http://arxiv.org/pdf/1605.06211v1.pdf) (FCNs).
 2. TensorFlow implementation of [U-Net](https://lmb.informatik.uni-freiburg.de/people/ronneber/u-net/)
 
